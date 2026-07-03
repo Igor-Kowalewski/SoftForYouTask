@@ -12,10 +12,13 @@ namespace CustomerCatalog.Core.Data;
 /// </summary>
 public sealed class DatabaseInitializer
 {
+    /// <summary>Default number of customers seeded into an empty database.</summary>
+    public const int DefaultSeedCount = 10_000;
+
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly int _seedCount;
 
-    public DatabaseInitializer(IDbConnectionFactory connectionFactory, int seedCount = 50)
+    public DatabaseInitializer(IDbConnectionFactory connectionFactory, int seedCount = DefaultSeedCount)
     {
         _connectionFactory = connectionFactory ?? throw new ArgumentNullException(nameof(connectionFactory));
         _seedCount = seedCount;
@@ -86,7 +89,14 @@ public sealed class DatabaseInitializer
             Email = c.Email.Value,
             c.CreatedAt
         });
-        connection.Execute(insert, rows);
+
+        // Without an explicit transaction, SQL Server commits (and flushes the log)
+        // after every individual INSERT, which matters once the seed count is in the
+        // thousands - one transaction for the whole batch is dramatically faster.
+        using var transaction = connection.BeginTransaction();
+        connection.Execute(insert, rows, transaction);
+        transaction.Commit();
+
         Log.Information("Seeded {Count} customers with test data (Bogus).", customers.Count);
     }
 

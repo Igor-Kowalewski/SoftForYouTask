@@ -121,7 +121,7 @@ dotnet run --project CustomerCatalog.App
 Przy pierwszym uruchomieniu aplikacja automatycznie:
 1. tworzy bazę `CustomerCatalog` w LocalDB (jeśli nie istnieje),
 2. tworzy tabelę `Customers`,
-3. wypełnia ją ~50 losowymi klientami wygenerowanymi przez Bogus.
+3. wypełnia ją 10 000 losowymi klientami wygenerowanymi przez Bogus (jedna transakcja, ~1 sekunda).
 
 Connection string można zmienić w `CustomerCatalog.App/appsettings.json`.
 
