@@ -78,15 +78,23 @@ public class AddressTests
     [InlineData("ul. Kwiatowa 5", null)]
     [InlineData("", "Ulica jest wymagana.")]
     [InlineData("   ", "Ulica jest wymagana.")]
-    public void ValidateStreet_MatchesTryParse(string street, string? expectedMessage)
+    [InlineData(null, "Ulica jest wymagana.")]
+    public void ValidateStreet_MatchesTryParse(string? street, string? expectedMessage)
     {
         Address.ValidateStreet(street).Should().Be(expectedMessage);
+    }
+
+    [Fact]
+    public void ValidateStreet_RejectsTooLong()
+    {
+        Address.ValidateStreet(new string('a', 201)).Should().Contain("200 znaków");
     }
 
     [Theory]
     [InlineData("00-001", null)]
     [InlineData("invalid", "Kod pocztowy jest niepoprawny (oczekiwany format NN-NNN).")]
-    public void ValidatePostalCode_MatchesTryParse(string postalCode, string? expectedMessage)
+    [InlineData(null, "Kod pocztowy jest niepoprawny (oczekiwany format NN-NNN).")]
+    public void ValidatePostalCode_MatchesTryParse(string? postalCode, string? expectedMessage)
     {
         Address.ValidatePostalCode(postalCode).Should().Be(expectedMessage);
     }
@@ -94,8 +102,15 @@ public class AddressTests
     [Theory]
     [InlineData("Warszawa", null)]
     [InlineData("", "Miasto jest wymagane.")]
-    public void ValidateCity_MatchesTryParse(string city, string? expectedMessage)
+    [InlineData(null, "Miasto jest wymagane.")]
+    public void ValidateCity_MatchesTryParse(string? city, string? expectedMessage)
     {
         Address.ValidateCity(city).Should().Be(expectedMessage);
+    }
+
+    [Fact]
+    public void ValidateCity_RejectsTooLong()
+    {
+        Address.ValidateCity(new string('a', 101)).Should().Contain("100 znaków");
     }
 }

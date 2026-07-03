@@ -88,7 +88,8 @@ public class CustomerValidatorTests
     [InlineData("Firma testowa", null)]
     [InlineData("", "Nazwa jest wymagana.")]
     [InlineData("   ", "Nazwa jest wymagana.")]
-    public void ValidateName_MatchesTryValidate(string name, string? expectedMessage)
+    [InlineData(null, "Nazwa jest wymagana.")]
+    public void ValidateName_MatchesTryValidate(string? name, string? expectedMessage)
     {
         CustomerValidator.ValidateName(name).Should().Be(expectedMessage);
     }
@@ -102,7 +103,8 @@ public class CustomerValidatorTests
     [Theory]
     [InlineData("123 456 789", null)]
     [InlineData("", null)] // phone is optional
-    public void ValidatePhone_MatchesTryValidate(string phone, string? expectedMessage)
+    [InlineData(null, null)] // phone is optional
+    public void ValidatePhone_MatchesTryValidate(string? phone, string? expectedMessage)
     {
         CustomerValidator.ValidatePhone(phone).Should().Be(expectedMessage);
     }

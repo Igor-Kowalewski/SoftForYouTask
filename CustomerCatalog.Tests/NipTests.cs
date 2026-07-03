@@ -62,4 +62,10 @@ public class NipTests
     {
         Nip.Validate("invalid").Should().Be(Nip.InvalidFormatMessage);
     }
+
+    [Fact]
+    public void ToString_ReturnsValue()
+    {
+        Nip.Parse("5260250274").ToString().Should().Be("5260250274");
+    }
 }

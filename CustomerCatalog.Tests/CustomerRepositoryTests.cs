@@ -9,7 +9,8 @@ namespace CustomerCatalog.Tests;
 /// <summary>
 /// Repository integration tests (Dapper against LocalDB). Require SQL Server LocalDB to be installed.
 /// </summary>
-public class CustomerRepositoryTests : IClassFixture<DatabaseFixture>
+[Collection(DatabaseCollection.Name)]
+public class CustomerRepositoryTests
 {
     private readonly DatabaseFixture _fixture;
     private readonly CustomerRepository _repository;
@@ -33,6 +34,13 @@ public class CustomerRepositoryTests : IClassFixture<DatabaseFixture>
     };
 
     [Fact]
+    public void Constructor_NullConnectionFactory_Throws()
+    {
+        var act = () => new CustomerRepository(null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
     public void Insert_AssignsId_AndPersists()
     {
         var customer = NewCustomer();
@@ -48,6 +56,18 @@ public class CustomerRepositoryTests : IClassFixture<DatabaseFixture>
         loaded.Nip.Should().Be(customer.Nip);
         loaded.Address.Should().Be(customer.Address);
         loaded.Email.Should().Be(customer.Email);
+    }
+
+    [Fact]
+    public void Insert_PreservesExplicitCreatedAt_WhenAlreadySet()
+    {
+        var customer = NewCustomer();
+        var explicitCreatedAt = new DateTime(2020, 5, 17, 10, 30, 0);
+        customer.CreatedAt = explicitCreatedAt;
+
+        var id = _repository.Insert(customer);
+
+        _repository.GetById(id)!.CreatedAt.Should().Be(explicitCreatedAt);
     }
 
     [Fact]

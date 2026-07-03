@@ -110,6 +110,47 @@ public class CustomerQueryTests
     }
 
     [Fact]
+    public void Filter_HandlesNullPhone_WithoutThrowing()
+    {
+        var customers = Sample();
+        customers[0].Phone = null!; // Phone has no non-null guarantee at the type level.
+
+        var act = () => CustomerQuery.Filter(customers, "Alfa").ToList();
+
+        act.Should().NotThrow();
+        act().Select(c => c.Name).Should().ContainSingle().Which.Should().Be("Alfa");
+    }
+
+    [Fact]
+    public void Sort_ByNip_Ascending()
+    {
+        // NIPs: Zeta=1357924688, Alfa=5222222229, Beta=9876543210.
+        CustomerQuery.Sort(Sample(), nameof(Customer.Nip), ascending: true)
+            .Select(c => c.Name).Should().ContainInOrder("Zeta", "Alfa", "Beta");
+    }
+
+    [Fact]
+    public void Sort_ByAddress_Ascending()
+    {
+        CustomerQuery.Sort(Sample(), nameof(Customer.Address), ascending: true)
+            .Select(c => c.Name).Should().ContainInOrder("Alfa", "Beta", "Zeta");
+    }
+
+    [Fact]
+    public void Sort_ByPhone_Ascending()
+    {
+        CustomerQuery.Sort(Sample(), nameof(Customer.Phone), ascending: true)
+            .Select(c => c.Name).Should().ContainInOrder("Zeta", "Alfa", "Beta");
+    }
+
+    [Fact]
+    public void Sort_ByEmail_Ascending()
+    {
+        CustomerQuery.Sort(Sample(), nameof(Customer.Email), ascending: true)
+            .Select(c => c.Name).Should().ContainInOrder("Alfa", "Beta", "Zeta");
+    }
+
+    [Fact]
     public void Sort_UnknownProperty_FallsBackToName()
     {
         CustomerQuery.Sort(Sample(), "DoesNotExist", ascending: true)

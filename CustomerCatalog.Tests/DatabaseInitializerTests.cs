@@ -1,11 +1,61 @@
 using CustomerCatalog.Core.Data;
+using Dapper;
 using FluentAssertions;
 using Xunit;
 
 namespace CustomerCatalog.Tests;
 
-public class DatabaseInitializerTests
+public class DatabaseInitializerTests : IClassFixture<DatabaseInitializerFixture>
 {
+    private readonly DatabaseInitializerFixture _fixture;
+
+    public DatabaseInitializerTests(DatabaseInitializerFixture fixture)
+    {
+        _fixture = fixture;
+    }
+
+    [Fact]
+    public void Constructor_NullConnectionFactory_Throws()
+    {
+        var act = () => new DatabaseInitializer(null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void EnsureCreatedAndSeeded_ConnectionStringMissingDatabase_Throws()
+    {
+        var factory = new SqlConnectionFactory(
+            "Server=(localdb)\\MSSQLLocalDB;Trusted_Connection=True;TrustServerCertificate=True;");
+        var initializer = new DatabaseInitializer(factory);
+
+        var act = initializer.EnsureCreatedAndSeeded;
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void EnsureCreatedAndSeeded_CreatesSchemaAndSeeds_ThenIsIdempotent()
+    {
+        var factory = new SqlConnectionFactory(_fixture.ConnectionString);
+
+        new DatabaseInitializer(factory, seedCount: 5).EnsureCreatedAndSeeded();
+
+        using (var connection = factory.CreateOpenConnection())
+        {
+            connection.ExecuteScalar<int>("SELECT COUNT(*) FROM Customers;").Should().Be(5);
+        }
+
+        // Calling it again against an already-created, already-seeded database must not
+        // create the DB/table a second time nor reseed - the row count stays the same
+        // even though a different seed count is requested.
+        new DatabaseInitializer(factory, seedCount: 7).EnsureCreatedAndSeeded();
+
+        using (var connection = factory.CreateOpenConnection())
+        {
+            connection.ExecuteScalar<int>("SELECT COUNT(*) FROM Customers;").Should().Be(5);
+        }
+    }
+
     [Fact]
     public void GenerateFakeCustomers_ProducesRequestedCount()
     {

@@ -30,6 +30,15 @@ public class EmailTests
     }
 
     [Fact]
+    public void TryParse_Fails_WhenLongerThan200Characters()
+    {
+        var tooLong = new string('a', 195) + "@example.com"; // > 200 characters total
+
+        Email.TryParse(tooLong, out var result).Should().BeFalse();
+        result.Should().BeNull();
+    }
+
+    [Fact]
     public void Parse_Throws_ForInvalidEmail()
     {
         var act = () => Email.Parse("invalid");
@@ -52,5 +61,11 @@ public class EmailTests
     public void Validate_ReturnsMessage_ForInvalidEmail()
     {
         Email.Validate("invalid").Should().Be(Email.InvalidFormatMessage);
+    }
+
+    [Fact]
+    public void ToString_ReturnsValue()
+    {
+        Email.Parse("test@example.com").ToString().Should().Be("test@example.com");
     }
 }
