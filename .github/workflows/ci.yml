@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore CustomerCatalog.slnx
+
+      - name: Build
+        run: dotnet build CustomerCatalog.slnx --configuration Release --no-restore
+
+      - name: Start LocalDB
+        run: |
+          sqllocaldb info MSSQLLocalDB
+          sqllocaldb start MSSQLLocalDB
+
+      # Enforces 100% line+branch coverage on CustomerCatalog.Core (the only assembly the
+      # Tests project references - CustomerCatalog.App is WinForms UI and out of scope by
+      # design, see CLAUDE.md). Coverlet's MSBuild integration re-instruments as part of this
+      # step, so it must NOT be run with --no-build, or the DLL won't get instrumented.
+      #
+      # NOTE: comma-separated MSBuild property values (ThresholdType=line,branch) get
+      # mis-parsed by `dotnet test`'s argument forwarding - MSBuild sees "branch" as its own
+      # switch. Using the %2c URL-encoding for the comma is the documented coverlet workaround.
+      - name: Test with coverage (100% required for CustomerCatalog.Core)
+        run: >
+          dotnet test CustomerCatalog.Tests/CustomerCatalog.Tests.csproj
+          --configuration Release
+          /p:CollectCoverage=true
+          /p:CoverletOutputFormat=cobertura
+          /p:ExcludeByAttribute=CompilerGeneratedAttribute
+          /p:Threshold=100
+          "-p:ThresholdType=line%2cbranch"
+          /p:ThresholdStat=total
+
+  release:
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Publish self-contained win-x64
+        run: >
+          dotnet publish CustomerCatalog.App/CustomerCatalog.App.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          --output ./publish
+
+      - name: Zip published output
+        run: Compress-Archive -Path ./publish/* -DestinationPath CustomerCatalog-win-x64.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v0.1.${{ github.run_number }}
+          name: Release v0.1.${{ github.run_number }}
+          generate_release_notes: true
+          files: CustomerCatalog-win-x64.zip
