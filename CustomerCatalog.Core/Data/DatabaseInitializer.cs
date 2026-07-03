@@ -1,6 +1,5 @@
 using Bogus;
 using CustomerCatalog.Core.Models;
-using CustomerCatalog.Core.Validation;
 using Dapper;
 using Microsoft.Data.SqlClient;
 using Serilog;
@@ -72,10 +71,22 @@ public sealed class DatabaseInitializer
 
         var customers = GenerateFakeCustomers(_seedCount);
         const string insert = """
-            INSERT INTO Customers (Name, Nip, Address, Phone, Email, CreatedAt)
-            VALUES (@Name, @Nip, @Address, @Phone, @Email, @CreatedAt);
+            INSERT INTO Customers (Name, Nip, Street, PostalCode, City, Phone, Email, CreatedAt)
+            VALUES (@Name, @Nip, @Street, @PostalCode, @City, @Phone, @Email, @CreatedAt);
             """;
-        connection.Execute(insert, customers);
+
+        var rows = customers.Select(c => new
+        {
+            c.Name,
+            Nip = c.Nip.Value,
+            Street = c.Address.Street,
+            PostalCode = c.Address.PostalCode,
+            City = c.Address.City,
+            c.Phone,
+            Email = c.Email.Value,
+            c.CreatedAt
+        });
+        connection.Execute(insert, rows);
         Log.Information("Seeded {Count} customers with test data (Bogus).", customers.Count);
     }
 
@@ -90,16 +101,19 @@ public sealed class DatabaseInitializer
         var faker = new Faker<Customer>("pl")
             .RuleFor(c => c.Name, f => f.Company.CompanyName())
             .RuleFor(c => c.Nip, f => GenerateValidNip(f))
-            .RuleFor(c => c.Address, f => $"{f.Address.StreetAddress()}, {f.Address.ZipCode()} {f.Address.City()}")
+            .RuleFor(c => c.Address, f => Address.Parse(
+                f.Address.StreetAddress(),
+                GeneratePolishPostalCode(f),
+                f.Address.City()))
             .RuleFor(c => c.Phone, f => f.Phone.PhoneNumber("### ### ###"))
-            .RuleFor(c => c.Email, f => f.Internet.Email(provider: "example.com"))
+            .RuleFor(c => c.Email, f => Email.Parse(f.Internet.Email(provider: "example.com")))
             .RuleFor(c => c.CreatedAt, f => f.Date.Past(2));
 
         return faker.Generate(count);
     }
 
     /// <summary>Generates a valid NIP (9 random digits + a computed check digit).</summary>
-    private static string GenerateValidNip(Faker f)
+    private static Nip GenerateValidNip(Faker f)
     {
         int[] weights = { 6, 5, 7, 2, 3, 4, 5, 6, 7 };
         while (true)
@@ -117,9 +131,15 @@ public sealed class DatabaseInitializer
                 continue; // Invalid check digit – draw again.
 
             digits[9] = check;
-            var nip = string.Concat(digits);
-            if (NipValidator.IsValid(nip))
-                return nip;
+            if (Nip.TryParse(string.Concat(digits), out var nip))
+                return nip!;
         }
     }
+
+    /// <summary>
+    /// Builds a Polish-format postal code (NN-NNN) directly, rather than relying on Bogus'
+    /// locale data to happen to match — keeps seeding independent of that data's exact shape.
+    /// </summary>
+    private static string GeneratePolishPostalCode(Faker f) =>
+        $"{f.Random.Int(0, 99):00}-{f.Random.Int(0, 999):000}";
 }

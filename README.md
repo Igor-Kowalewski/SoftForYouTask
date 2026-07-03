@@ -31,8 +31,9 @@ w `MainForm`, bez zmian w logice (`CustomerCatalog.Core`).
 ```
 CustomerCatalog.slnx
 ├─ CustomerCatalog.Core     # Logika i dostęp do danych (testowalne, bez zależności od UI)
-│  ├─ Models/Customer.cs
-│  ├─ Validation/           # NipValidator, CustomerValidator
+│  ├─ Models/Customer.cs    # Encja główna
+│  ├─ Models/{Nip,Email,Address}.cs  # Value objects – patrz niżej
+│  ├─ Validation/           # CustomerInput (DTO z formularza), CustomerValidator
 │  ├─ Services/             # CustomerQuery (filtrowanie i sortowanie – testowalne)
 │  ├─ Data/                 # IDbConnectionFactory, CustomerRepository (Dapper), DatabaseInitializer, CustomerSchema
 │  └─ Logging/LogSetup.cs   # Konfiguracja Serilog
@@ -43,6 +44,25 @@ CustomerCatalog.slnx
 │  └─ appsettings.json      # Connection string
 └─ CustomerCatalog.Tests    # Testy xUnit (integracyjne repozytorium + jednostkowe walidacji)
 ```
+
+### Model domenowy: NIP, e-mail i adres jako value objects
+
+`Nip`, `Email` i `Address` (`CustomerCatalog.Core/Models`) nie są zwykłymi `string`, tylko
+niemutowalnymi typami (`sealed record`) z walidacją wbudowaną w konstrukcję
+(`Parse`/`TryParse`, na wzór `Guid.Parse`/`TryParse`). Dzięki temu nie da się zbudować
+`Customer` z niepoprawnym NIP-em, e-mailem czy kodem pocztowym — poprawność jest
+gwarantowana przez typ, a nie sprawdzana osobno przy każdym użyciu.
+
+`Address` jest osobnym value objectem (Street/PostalCode/City), a nie jednym polem
+tekstowym ani osobną tabelą w bazie: nie ma własnej tożsamości i nigdy nie jest
+współdzielony między klientami, więc modelowanie go jako oddzielnej encji z FK byłoby
+niepotrzebną złożonością — kanoniczne podejście DDD (Evans) traktuje adres jako przykładowy
+value object. W bazie przechowywany jest jako trzy kolumny (`Street`, `PostalCode`, `City`)
+w tabeli `Customers`.
+
+Dapper mapuje surowe wiersze SQL na płaski, prywatny rekord `CustomerRow`
+(`CustomerRepository`), a dopiero repozytorium jawnie konwertuje go na `Customer` z
+value objects — bez rejestrowania globalnych `SqlMapper.TypeHandler`.
 
 ## Wymagania
 
@@ -95,9 +115,9 @@ dotnet test
 Testy obejmują:
 - **integracyjne** repozytorium (Dapper) na osobnej bazie `CustomerCatalog_Test` w LocalDB
   (pełny cykl Insert → GetById → Update → GetAll → Delete; baza jest tworzona i usuwana automatycznie),
-- **jednostkowe** walidacji NIP (suma kontrolna) oraz modelu klienta,
-- **jednostkowe** filtrowania i sortowania (`CustomerQuery`),
-- weryfikację, że dane generowane przez Bogus są poprawne.
+- **jednostkowe** value objects `Nip`, `Email`, `Address` (parsowanie, walidacja, równość),
+- **jednostkowe** `CustomerValidator` (agregacja błędów z wielu pól) oraz filtrowania/sortowania (`CustomerQuery`),
+- weryfikację, że dane generowane przez Bogus są poprawne (nie rzucają wyjątkiem przy budowie value objects).
 
 ## Publikacja na GitHub
 

@@ -209,7 +209,7 @@ public sealed class MainForm : Form
 
     private void AddCustomer()
     {
-        using var form = new CustomerEditForm(new Customer());
+        using var form = new CustomerEditForm(null);
         if (form.ShowDialog(this) != DialogResult.OK)
             return;
 
@@ -237,8 +237,9 @@ public sealed class MainForm : Form
             return;
         }
 
-        // Edit on a copy – if the user cancels, the original stays untouched.
-        using var form = new CustomerEditForm(selected.Clone());
+        // CustomerEditForm only reads from the passed-in customer to prefill its fields and
+        // never mutates it, so the original stays untouched if the user cancels.
+        using var form = new CustomerEditForm(selected);
         if (form.ShowDialog(this) != DialogResult.OK)
             return;
 

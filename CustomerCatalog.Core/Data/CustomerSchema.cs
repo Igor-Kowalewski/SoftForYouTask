@@ -12,13 +12,15 @@ public static class CustomerSchema
     public const string CreateTableSql = """
         CREATE TABLE dbo.Customers
         (
-            Id        INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-            Name      NVARCHAR(200)     NOT NULL,
-            Nip       NVARCHAR(10)      NOT NULL,
-            Address   NVARCHAR(300)     NULL,
-            Phone     NVARCHAR(30)      NULL,
-            Email     NVARCHAR(200)     NULL,
-            CreatedAt DATETIME2         NOT NULL CONSTRAINT DF_Customers_CreatedAt DEFAULT SYSUTCDATETIME()
+            Id         INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+            Name       NVARCHAR(200)     NOT NULL,
+            Nip        NVARCHAR(10)      NOT NULL,
+            Street     NVARCHAR(200)     NOT NULL,
+            PostalCode NVARCHAR(10)      NOT NULL,
+            City       NVARCHAR(100)     NOT NULL,
+            Phone      NVARCHAR(30)      NULL,
+            Email      NVARCHAR(200)     NOT NULL,
+            CreatedAt  DATETIME2         NOT NULL CONSTRAINT DF_Customers_CreatedAt DEFAULT SYSUTCDATETIME()
         );
         """;
 

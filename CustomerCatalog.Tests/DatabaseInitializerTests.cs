@@ -1,5 +1,4 @@
 using CustomerCatalog.Core.Data;
-using CustomerCatalog.Core.Validation;
 using FluentAssertions;
 using Xunit;
 
@@ -14,11 +13,14 @@ public class DatabaseInitializerTests
     }
 
     [Fact]
-    public void GenerateFakeCustomers_ProducesOnlyValidCustomers()
+    public void GenerateFakeCustomers_ProducesCustomersWithRequiredFields()
     {
+        // Nip/Email/Address are valid by construction – generation would already have
+        // thrown a FormatException if any of them were invalid. This just sanity-checks
+        // the remaining plain fields that have no value object of their own.
         var customers = DatabaseInitializer.GenerateFakeCustomers(50);
 
-        customers.Should().OnlyContain(c => CustomerValidator.IsValid(c));
-        customers.Should().OnlyContain(c => NipValidator.IsValid(c.Nip));
+        customers.Should().OnlyContain(c => !string.IsNullOrWhiteSpace(c.Name) && c.Name.Length <= 200);
+        customers.Should().OnlyContain(c => c.Phone.Length <= 30);
     }
 }

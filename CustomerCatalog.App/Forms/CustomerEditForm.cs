@@ -11,26 +11,36 @@ public sealed class CustomerEditForm : Form
 {
     private readonly TextBox _nameBox = new();
     private readonly TextBox _nipBox = new();
-    private readonly TextBox _addressBox = new();
+    private readonly TextBox _streetBox = new();
+    private readonly TextBox _postalCodeBox = new();
+    private readonly TextBox _cityBox = new();
     private readonly TextBox _phoneBox = new();
     private readonly TextBox _emailBox = new();
 
-    /// <summary>The customer being edited (populated from the fields when "Save" is clicked).</summary>
-    public Customer Customer { get; }
+    // Carried over from the customer being edited (or defaults, for a new one) since
+    // CustomerValidator.TryValidate only knows how to build the editable fields.
+    private readonly int _id;
+    private readonly DateTime _createdAt;
 
-    public CustomerEditForm(Customer customer)
+    /// <summary>The validated customer, populated once the user clicks "Save".</summary>
+    public Customer Customer { get; private set; } = null!;
+
+    /// <summary>Pass null to create a new customer, or an existing one to edit it.</summary>
+    public CustomerEditForm(Customer? existingCustomer)
     {
-        Customer = customer ?? throw new ArgumentNullException(nameof(customer));
+        _id = existingCustomer?.Id ?? 0;
+        _createdAt = existingCustomer?.CreatedAt ?? default;
 
-        InitializeLayout();
-        LoadFromCustomer();
+        InitializeLayout(isNew: existingCustomer is null);
+        if (existingCustomer is not null)
+            LoadFromCustomer(existingCustomer);
     }
 
-    private void InitializeLayout()
+    private void InitializeLayout(bool isNew)
     {
-        Text = Customer.Id == 0 ? "Nowy klient" : "Edycja klienta";
+        Text = isNew ? "Nowy klient" : "Edycja klienta";
         Width = 460;
-        Height = 320;
+        Height = 420;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
@@ -40,17 +50,19 @@ public sealed class CustomerEditForm : Form
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            RowCount = 6,
+            RowCount = 7,
             Padding = new Padding(12),
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
 
         AddRow(layout, "Nazwa:", _nameBox, 0);
         AddRow(layout, "NIP:", _nipBox, 1);
-        AddRow(layout, "Adres:", _addressBox, 2);
-        AddRow(layout, "Telefon:", _phoneBox, 3);
-        AddRow(layout, "E-mail:", _emailBox, 4);
+        AddRow(layout, "Ulica:", _streetBox, 2);
+        AddRow(layout, "Kod pocztowy:", _postalCodeBox, 3);
+        AddRow(layout, "Miasto:", _cityBox, 4);
+        AddRow(layout, "Telefon:", _phoneBox, 5);
+        AddRow(layout, "E-mail:", _emailBox, 6);
 
         var buttonPanel = new FlowLayoutPanel
         {
@@ -96,26 +108,23 @@ public sealed class CustomerEditForm : Form
         layout.Controls.Add(box, 1, row);
     }
 
-    private void LoadFromCustomer()
+    private void LoadFromCustomer(Customer customer)
     {
-        _nameBox.Text = Customer.Name;
-        _nipBox.Text = Customer.Nip;
-        _addressBox.Text = Customer.Address;
-        _phoneBox.Text = Customer.Phone;
-        _emailBox.Text = Customer.Email;
+        _nameBox.Text = customer.Name;
+        _nipBox.Text = customer.Nip.Value;
+        _streetBox.Text = customer.Address.Street;
+        _postalCodeBox.Text = customer.Address.PostalCode;
+        _cityBox.Text = customer.Address.City;
+        _phoneBox.Text = customer.Phone;
+        _emailBox.Text = customer.Email.Value;
     }
 
     private void OnSave(object? sender, EventArgs e)
     {
-        // Copy the field values back into the model.
-        Customer.Name = _nameBox.Text.Trim();
-        Customer.Nip = NipValidator.Normalize(_nipBox.Text);
-        Customer.Address = _addressBox.Text.Trim();
-        Customer.Phone = _phoneBox.Text.Trim();
-        Customer.Email = _emailBox.Text.Trim();
+        var input = new CustomerInput(
+            _nameBox.Text, _nipBox.Text, _streetBox.Text, _postalCodeBox.Text, _cityBox.Text, _phoneBox.Text, _emailBox.Text);
 
-        var errors = CustomerValidator.Validate(Customer);
-        if (errors.Count > 0)
+        if (!CustomerValidator.TryValidate(input, out var validated, out var errors))
         {
             MessageBox.Show(
                 "Popraw następujące błędy:\n\n• " + string.Join("\n• ", errors),
@@ -124,6 +133,10 @@ public sealed class CustomerEditForm : Form
                 MessageBoxIcon.Warning);
             return;
         }
+
+        validated!.Id = _id;
+        validated.CreatedAt = _createdAt;
+        Customer = validated;
 
         DialogResult = DialogResult.OK;
         Close();

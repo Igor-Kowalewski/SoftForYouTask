@@ -23,10 +23,10 @@ public class CustomerRepositoryTests : IClassFixture<DatabaseFixture>
     private static Customer NewCustomer(string name = "Firma testowa") => new()
     {
         Name = name,
-        Nip = "5260250274",
-        Address = "ul. Testowa 1, 00-001 Warszawa",
+        Nip = Nip.Parse("5260250274"),
+        Address = Address.Parse("ul. Testowa 1", "00-001", "Warszawa"),
         Phone = "123 456 789",
-        Email = "kontakt@example.com"
+        Email = Email.Parse("kontakt@example.com")
     };
 
     [Fact]
@@ -43,6 +43,7 @@ public class CustomerRepositoryTests : IClassFixture<DatabaseFixture>
         loaded.Should().NotBeNull();
         loaded!.Name.Should().Be(customer.Name);
         loaded.Nip.Should().Be(customer.Nip);
+        loaded.Address.Should().Be(customer.Address);
         loaded.Email.Should().Be(customer.Email);
     }
 
@@ -59,13 +60,15 @@ public class CustomerRepositoryTests : IClassFixture<DatabaseFixture>
         _repository.Insert(customer);
 
         customer.Name = "Nowa nazwa";
-        customer.Email = "nowy@example.com";
+        customer.Email = Email.Parse("nowy@example.com");
+        customer.Address = Address.Parse("ul. Nowa 5", "11-222", "Kraków");
         var updated = _repository.Update(customer);
 
         updated.Should().BeTrue();
         var loaded = _repository.GetById(customer.Id);
         loaded!.Name.Should().Be("Nowa nazwa");
-        loaded.Email.Should().Be("nowy@example.com");
+        loaded.Email.Should().Be(Email.Parse("nowy@example.com"));
+        loaded.Address.Should().Be(Address.Parse("ul. Nowa 5", "11-222", "Kraków"));
     }
 
     [Fact]

@@ -20,10 +20,10 @@ public static class CustomerQuery
         var needle = term.Trim();
         return source.Where(c =>
             Contains(c.Name, needle) ||
-            Contains(c.Nip, needle) ||
-            Contains(c.Email, needle) ||
+            Contains(c.Nip.Value, needle) ||
+            Contains(c.Email.Value, needle) ||
             Contains(c.Phone, needle) ||
-            Contains(c.Address, needle));
+            Contains(c.Address.ToString(), needle));
     }
 
     /// <summary>
@@ -34,10 +34,10 @@ public static class CustomerQuery
     {
         Func<Customer, object?> key = propertyName switch
         {
-            nameof(Customer.Nip) => c => c.Nip,
-            nameof(Customer.Address) => c => c.Address,
+            nameof(Customer.Nip) => c => c.Nip.Value,
+            nameof(Customer.Address) => c => c.Address.ToString(),
             nameof(Customer.Phone) => c => c.Phone,
-            nameof(Customer.Email) => c => c.Email,
+            nameof(Customer.Email) => c => c.Email.Value,
             nameof(Customer.CreatedAt) => c => c.CreatedAt,
             _ => c => c.Name
         };

@@ -10,24 +10,23 @@ public class Customer
     /// <summary>Name (company or person).</summary>
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>Polish tax identification number (NIP, 10 digits).</summary>
-    public string Nip { get; set; } = string.Empty;
+    // Nip/Address/Email have no meaningful "empty" default (a value either is a valid NIP or
+    // doesn't exist), so they default to null-forgiven here. Every code path that produces a
+    // Customer (the repository, hydrating from a valid row, or CustomerValidator.TryValidate,
+    // which fails the whole validation before a Customer is built) always populates them.
 
-    /// <summary>Address.</summary>
-    public string Address { get; set; } = string.Empty;
+    /// <summary>Polish tax identification number.</summary>
+    public Nip Nip { get; set; } = null!;
+
+    /// <summary>Postal address.</summary>
+    public Address Address { get; set; } = null!;
 
     /// <summary>Phone number.</summary>
     public string Phone { get; set; } = string.Empty;
 
     /// <summary>E-mail address.</summary>
-    public string Email { get; set; } = string.Empty;
+    public Email Email { get; set; } = null!;
 
     /// <summary>Record creation timestamp.</summary>
     public DateTime CreatedAt { get; set; }
-
-    /// <summary>
-    /// Creates a shallow copy. Used by the edit form so editing happens on a copy
-    /// and the original is only replaced once the user confirms with "Save".
-    /// </summary>
-    public Customer Clone() => (Customer)MemberwiseClone();
 }

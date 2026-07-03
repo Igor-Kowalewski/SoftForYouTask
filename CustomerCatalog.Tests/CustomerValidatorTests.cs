@@ -1,4 +1,3 @@
-using CustomerCatalog.Core.Models;
 using CustomerCatalog.Core.Validation;
 using FluentAssertions;
 using Xunit;
@@ -7,46 +6,81 @@ namespace CustomerCatalog.Tests;
 
 public class CustomerValidatorTests
 {
-    private static Customer ValidCustomer() => new()
-    {
-        Name = "Firma testowa Sp. z o.o.",
-        Nip = "5260250274",
-        Address = "ul. Testowa 1, 00-001 Warszawa",
-        Phone = "123 456 789",
-        Email = "kontakt@example.com"
-    };
+    private static CustomerInput ValidInput() => new(
+        Name: "Firma testowa Sp. z o.o.",
+        Nip: "5260250274",
+        Street: "ul. Testowa 1",
+        PostalCode: "00-001",
+        City: "Warszawa",
+        Phone: "123 456 789",
+        Email: "kontakt@example.com");
 
     [Fact]
-    public void Validate_ReturnsNoErrors_ForValidCustomer()
+    public void TryValidate_Succeeds_ForValidInput()
     {
-        CustomerValidator.Validate(ValidCustomer()).Should().BeEmpty();
+        CustomerValidator.TryValidate(ValidInput(), out var customer, out var errors).Should().BeTrue();
+
+        errors.Should().BeEmpty();
+        customer.Should().NotBeNull();
+        customer!.Name.Should().Be("Firma testowa Sp. z o.o.");
+        customer.Nip.Value.Should().Be("5260250274");
+        customer.Address.City.Should().Be("Warszawa");
+        customer.Email.Value.Should().Be("kontakt@example.com");
     }
 
     [Fact]
-    public void Validate_RequiresName()
+    public void TryValidate_RequiresName()
     {
-        var customer = ValidCustomer();
-        customer.Name = "   ";
+        var input = ValidInput() with { Name = "   " };
 
-        CustomerValidator.Validate(customer).Should().ContainSingle()
-            .Which.Should().Contain("Nazwa");
+        CustomerValidator.TryValidate(input, out var customer, out var errors).Should().BeFalse();
+
+        customer.Should().BeNull();
+        errors.Should().ContainSingle().Which.Should().Contain("Nazwa");
     }
 
     [Fact]
-    public void Validate_RejectsInvalidEmail()
+    public void TryValidate_RejectsInvalidEmail()
     {
-        var customer = ValidCustomer();
-        customer.Email = "nieprawidlowy-email";
+        var input = ValidInput() with { Email = "nieprawidlowy-email" };
 
-        CustomerValidator.Validate(customer).Should().Contain(e => e.Contains("E-mail"));
+        CustomerValidator.TryValidate(input, out _, out var errors).Should().BeFalse();
+        errors.Should().Contain(e => e.Contains("E-mail"));
     }
 
     [Fact]
-    public void Validate_RejectsInvalidNip()
+    public void TryValidate_RejectsInvalidNip()
     {
-        var customer = ValidCustomer();
-        customer.Nip = "0000000000";
+        var input = ValidInput() with { Nip = "0000000000" };
 
-        CustomerValidator.Validate(customer).Should().Contain(e => e.Contains("NIP"));
+        CustomerValidator.TryValidate(input, out _, out var errors).Should().BeFalse();
+        errors.Should().Contain(e => e.Contains("NIP"));
+    }
+
+    [Fact]
+    public void TryValidate_RejectsInvalidAddress()
+    {
+        var input = ValidInput() with { PostalCode = "invalid" };
+
+        CustomerValidator.TryValidate(input, out _, out var errors).Should().BeFalse();
+        errors.Should().Contain(e => e.Contains("Kod pocztowy"));
+    }
+
+    [Fact]
+    public void TryValidate_RejectsTooLongPhone()
+    {
+        var input = ValidInput() with { Phone = new string('1', 31) };
+
+        CustomerValidator.TryValidate(input, out _, out var errors).Should().BeFalse();
+        errors.Should().Contain(e => e.Contains("telefonu"));
+    }
+
+    [Fact]
+    public void TryValidate_ReportsAllErrors_WhenMultipleFieldsInvalid()
+    {
+        var input = ValidInput() with { Name = "", Nip = "invalid", Email = "invalid" };
+
+        CustomerValidator.TryValidate(input, out _, out var errors).Should().BeFalse();
+        errors.Should().HaveCount(3);
     }
 }
