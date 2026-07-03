@@ -64,6 +64,41 @@ Dapper mapuje surowe wiersze SQL na płaski, prywatny rekord `CustomerRow`
 (`CustomerRepository`), a dopiero repozytorium jawnie konwertuje go na `Customer` z
 value objects — bez rejestrowania globalnych `SqlMapper.TypeHandler`.
 
+## Decyzje architektoniczne (ADR)
+
+### ADR-001: Aplikacja dostosowana wyłącznie do rynku polskiego
+
+**Status:** Zaakceptowane
+
+**Kontekst:**
+Wytyczne definiują katalog klientów z polami nazwa/NIP/adres/telefon/e-mail. NIP to
+specyficznie polski numer identyfikacji podatkowej, a projekt jest realizowany w
+kontekście polskiej rekrutacji, bez wymogu obsługi innych rynków, walut czy formatów
+danych.
+
+**Decyzja:**
+Aplikacja nie jest projektowana jako wielorynkowa ani wielojęzyczna. W szczególności:
+
+- `Nip` (`CustomerCatalog.Core/Models/Nip.cs`) implementuje wyłącznie polski algorytm
+  sumy kontrolnej NIP (wagi 6,5,7,2,3,4,5,6,7, modulo 11) — nie inne krajowe numery
+  identyfikacji podatkowej (np. VAT ID innych krajów UE).
+- `Address.PostalCode` (`CustomerCatalog.Core/Models/Address.cs`) waliduje wyłącznie
+  polski format kodu pocztowego `NN-NNN` (`^\d{2}-\d{3}$`) — nie formaty innych krajów.
+  `Address` nie ma pola `Country` (zakładana jest Polska).
+- Cały interfejs użytkownika (etykiety, komunikaty walidacyjne, przyciski, okna dialogowe)
+  jest zapisany na sztywno w języku polskim — brak mechanizmu i18n/zasobów językowych.
+- Dane testowe generowane przez Bogus używają locale `"pl"` (`DatabaseInitializer`).
+- `Customer.Phone` nie ma numeru kierunkowego kraju ani walidacji formatu — zakładany
+  jest numer krajowy zapisany dowolnie (tylko limit długości).
+
+**Konsekwencje:**
+Rozszerzenie na inny kraj wymagałoby m.in.: uogólnienia `Nip` na politykę per-kraj
+(np. `TaxId` z wymienną strategią walidacji), sparametryzowania walidacji kodu
+pocztowego, dodania pola `Country` do `Address`, oraz wprowadzenia i18n dla UI
+(zasoby językowe zamiast stringów na sztywno). W obecnym, jednorynkowym zakresie
+rekrutacyjnym jest to świadome uproszczenie — nie wprowadzano spekulacyjnych
+abstrakcji wielokrajowych, których nic obecnie nie wymaga.
+
 ## Wymagania
 
 - Windows 10 lub nowszy
