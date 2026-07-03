@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="CustomerCatalog.App/CustomerCatalog.App.csproj" />
+  <Project Path="CustomerCatalog.Core/CustomerCatalog.Core.csproj" />
+  <Project Path="CustomerCatalog.Tests/CustomerCatalog.Tests.csproj" />
+</Solution>
