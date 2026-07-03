@@ -18,14 +18,6 @@ przegląd, filtrowanie, sortowanie, dodawanie, edycja i usuwanie danych klienta
 | Logowanie | [Serilog](https://serilog.net/) (rolowany plik) |
 | Testy | xUnit + FluentAssertions |
 
-### Uwaga o DevExpress
-
-Wytyczne dopuszczały DevExpress, jednak jest to biblioteka komercyjna wymagająca licencji
-i prywatnego kanału NuGet. W tym projekcie użyto wbudowanego, darmowego `DataGridView`
-(sortowanie po nagłówkach, filtrowanie przez pole wyszukiwania). Warstwa UI jest cienka –
-ewentualna wymiana gridu na DevExpress `GridControl` sprowadza się do podmiany kontrolki
-w `MainForm`, bez zmian w logice (`CustomerCatalog.Core`).
-
 ## Struktura rozwiązania
 
 ```
@@ -155,15 +147,3 @@ Testy obejmują:
 - **jednostkowe** value objects `Nip`, `Email`, `Address` (parsowanie, walidacja, równość),
 - **jednostkowe** `CustomerValidator` (agregacja błędów z wielu pól) oraz filtrowania/sortowania (`CustomerQuery`),
 - weryfikację, że dane generowane przez Bogus są poprawne (nie rzucają wyjątkiem przy budowie value objects).
-
-## Publikacja na GitHub
-
-Repozytorium lokalne jest już zainicjowane. Aby wypchnąć je na GitHub:
-
-```powershell
-# 1. Utwórz puste repozytorium na https://github.com/new (bez README/.gitignore)
-# 2. Podłącz zdalne repozytorium i wypchnij:
-git remote add origin https://github.com/<uzytkownik>/<repo>.git
-git branch -M main
-git push -u origin main
-```
