@@ -15,8 +15,15 @@ public sealed class CustomerEditForm : Form
     // reliably centered in the same space instead of drifting within extra slack.
     private const float RowHeight = 32f;
 
+    // Deterministic (not "whatever's left over") height for the error summary row: up to 7
+    // fields can be invalid at once, some of whose Polish messages wrap to 2 lines - a
+    // Percent row sizing to leftover space silently clipped the last line in testing.
+    private const float ErrorRowHeight = 180f;
+
+    private static readonly Color NormalBorderColor = SystemColors.Control;
+    private static readonly Color InvalidBorderColor = Color.Firebrick;
+
     private readonly ICustomerRepository _repository;
-    private readonly ErrorProvider _errorProvider = new() { BlinkStyle = ErrorBlinkStyle.NeverBlink };
 
     private readonly TextBox _nameBox = new();
     private readonly TextBox _nipBox = new();
@@ -25,6 +32,12 @@ public sealed class CustomerEditForm : Form
     private readonly TextBox _cityBox = new();
     private readonly TextBox _phoneBox = new();
     private readonly TextBox _emailBox = new();
+
+    // Each textbox sits inside a Panel whose padding forms a visible "border" that turns red
+    // when the field is invalid - a plain WinForms TextBox has no BorderColor property.
+    private readonly Dictionary<TextBox, Panel> _fieldBorders = new();
+    private readonly Dictionary<TextBox, string> _fieldErrors = new();
+    private readonly Label _errorSummaryLabel = new();
 
     // Carried over from the customer being edited (or defaults, for a new one) since
     // CustomerValidator.TryValidate only knows how to build the editable fields.
@@ -51,25 +64,24 @@ public sealed class CustomerEditForm : Form
     {
         Text = isNew ? "Nowy klient" : "Edycja klienta";
         Width = 460;
-        Height = 360;
+        Height = 560;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
         MinimizeBox = false;
 
-        _errorProvider.ContainerControl = this;
-
         var layout = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
             ColumnCount = 2,
-            RowCount = 7,
+            RowCount = 8,
             Padding = new Padding(12),
         };
-        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
+        layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 120)); // wide enough for "Kod pocztowy:"
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        for (var i = 0; i < layout.RowCount; i++)
+        for (var i = 0; i < 7; i++)
             layout.RowStyles.Add(new RowStyle(SizeType.Absolute, RowHeight));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, ErrorRowHeight));
 
         AddRow(layout, "Nazwa:", _nameBox, 0);
         AddRow(layout, "NIP:", _nipBox, 1);
@@ -78,6 +90,14 @@ public sealed class CustomerEditForm : Form
         AddRow(layout, "Miasto:", _cityBox, 4);
         AddRow(layout, "Telefon:", _phoneBox, 5);
         AddRow(layout, "E-mail:", _emailBox, 6);
+
+        _errorSummaryLabel.Dock = DockStyle.Fill;
+        _errorSummaryLabel.ForeColor = InvalidBorderColor;
+        _errorSummaryLabel.TextAlign = ContentAlignment.TopLeft;
+        _errorSummaryLabel.Margin = new Padding(3, 8, 3, 3);
+        _errorSummaryLabel.Text = string.Empty;
+        layout.Controls.Add(_errorSummaryLabel, 0, 7);
+        layout.SetColumnSpan(_errorSummaryLabel, 2);
 
         var buttonPanel = new FlowLayoutPanel
         {
@@ -108,7 +128,7 @@ public sealed class CustomerEditForm : Form
         CancelButton = cancelButton;
     }
 
-    private static void AddRow(TableLayoutPanel layout, string text, TextBox box, int row)
+    private void AddRow(TableLayoutPanel layout, string text, TextBox box, int row)
     {
         var label = new Label
         {
@@ -119,29 +139,71 @@ public sealed class CustomerEditForm : Form
         };
         layout.Controls.Add(label, 0, row);
 
+        // 2px of this panel's own background shows around the (border-less) textbox,
+        // acting as a border that can be recolored without owner-drawing anything.
+        var border = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Margin = new Padding(3, 2, 3, 2),
+            Padding = new Padding(2),
+            BackColor = NormalBorderColor
+        };
+
+        box.Name = text;
         box.Dock = DockStyle.Fill;
-        box.Margin = new Padding(3, 2, 3, 2);
-        layout.Controls.Add(box, 1, row);
+        box.Margin = new Padding(0);
+        border.Controls.Add(box);
+        _fieldBorders[box] = border;
+
+        layout.Controls.Add(border, 1, row);
     }
 
     /// <summary>
-    /// Wires each field to validate itself (and show a red icon via ErrorProvider) as soon as
-    /// the user leaves it, using the exact same rules as the final save check below - so
-    /// inline feedback and the save-time gate can never disagree.
+    /// (field, validator) pairs - the single source of truth for both wiring inline
+    /// validation (on Leave) and re-validating everything eagerly before save.
+    /// </summary>
+    private IEnumerable<(TextBox Box, Func<string?> Validate)> FieldValidators()
+    {
+        yield return (_nameBox, () => CustomerValidator.ValidateName(_nameBox.Text));
+        yield return (_nipBox, ValidateNipField);
+        yield return (_streetBox, () => Address.ValidateStreet(_streetBox.Text));
+        yield return (_postalCodeBox, () => Address.ValidatePostalCode(_postalCodeBox.Text));
+        yield return (_cityBox, () => Address.ValidateCity(_cityBox.Text));
+        yield return (_phoneBox, () => CustomerValidator.ValidatePhone(_phoneBox.Text));
+        yield return (_emailBox, () => Email.Validate(_emailBox.Text));
+    }
+
+    /// <summary>
+    /// Validates each field as soon as the user leaves it: highlights the field's border red
+    /// and keeps the always-visible error summary in sync, using the exact same rules as the
+    /// final save check - so inline feedback and the save-time gate can never disagree.
     /// </summary>
     private void HookInlineValidation()
     {
-        HookField(_nameBox, () => CustomerValidator.ValidateName(_nameBox.Text));
-        HookField(_nipBox, ValidateNipField);
-        HookField(_streetBox, () => Address.ValidateStreet(_streetBox.Text));
-        HookField(_postalCodeBox, () => Address.ValidatePostalCode(_postalCodeBox.Text));
-        HookField(_cityBox, () => Address.ValidateCity(_cityBox.Text));
-        HookField(_phoneBox, () => CustomerValidator.ValidatePhone(_phoneBox.Text));
-        HookField(_emailBox, () => Email.Validate(_emailBox.Text));
+        foreach (var (box, validate) in FieldValidators())
+            box.Leave += (_, _) => SetFieldError(box, validate());
     }
 
-    private void HookField(TextBox box, Func<string?> validate) =>
-        box.Leave += (_, _) => _errorProvider.SetError(box, validate() ?? "");
+    /// <summary>Re-runs every field's validator, e.g. right before save so fields the user never
+    /// tabbed through (Leave never fired) still get highlighted if they're invalid.</summary>
+    private void ValidateAllFields()
+    {
+        foreach (var (box, validate) in FieldValidators())
+            SetFieldError(box, validate());
+    }
+
+    private void SetFieldError(TextBox box, string? message)
+    {
+        if (message is null)
+            _fieldErrors.Remove(box);
+        else
+            _fieldErrors[box] = message;
+
+        _fieldBorders[box].BackColor = message is null ? NormalBorderColor : InvalidBorderColor;
+        _errorSummaryLabel.Text = _fieldErrors.Count == 0
+            ? string.Empty
+            : "• " + string.Join("\n• ", _fieldErrors.Values);
+    }
 
     /// <summary>
     /// Validates the NIP field's format and, when it parses, whether another customer already
@@ -172,21 +234,24 @@ public sealed class CustomerEditForm : Form
 
     private void OnSave(object? sender, EventArgs e)
     {
+        // Re-validate every field (not just the ones the user happened to Tab through) so
+        // nothing invalid slips past just because its Leave event never fired.
+        ValidateAllFields();
+
+        if (_fieldErrors.Count > 0)
+        {
+            // Send focus to the first problem field instead of failing silently.
+            FieldValidators().Select(f => f.Box).First(box => _fieldErrors.ContainsKey(box)).Focus();
+            return;
+        }
+
         var input = new CustomerInput(
             _nameBox.Text, _nipBox.Text, _streetBox.Text, _postalCodeBox.Text, _cityBox.Text, _phoneBox.Text, _emailBox.Text);
 
-        if (!CustomerValidator.TryValidate(input, out var validated, out var errors))
-        {
-            ShowValidationErrors(errors);
+        // Should always succeed here: ValidateAllFields() above already confirmed every field
+        // individually, covering the exact same rules TryValidate applies while building Customer.
+        if (!CustomerValidator.TryValidate(input, out var validated, out _))
             return;
-        }
-
-        var duplicateNipError = ValidateNipField();
-        if (duplicateNipError is not null)
-        {
-            ShowValidationErrors(new[] { duplicateNipError });
-            return;
-        }
 
         validated!.Id = _id;
         validated.CreatedAt = _createdAt;
@@ -194,14 +259,5 @@ public sealed class CustomerEditForm : Form
 
         DialogResult = DialogResult.OK;
         Close();
-    }
-
-    private static void ShowValidationErrors(IEnumerable<string> errors)
-    {
-        MessageBox.Show(
-            "Popraw następujące błędy:\n\n• " + string.Join("\n• ", errors),
-            "Walidacja",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Warning);
     }
 }

@@ -89,19 +89,20 @@ public sealed class MainForm : Form
 
     private Control BuildStatusBar()
     {
-        var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 34 };
-
-        _statusLabel.Dock = DockStyle.Fill;
-        _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
-        _statusLabel.Padding = new Padding(8, 0, 0, 0);
-
-        var pagingPanel = new FlowLayoutPanel
+        // A single flat FlowLayoutPanel (matching the toolbar's pattern, which is known to
+        // render correctly) - an earlier nested Dock=Right FlowLayoutPanel here was missing
+        // WrapContents=false and ended up clipping the page label and "Next" button.
+        var bottomPanel = new FlowLayoutPanel
         {
-            Dock = DockStyle.Right,
-            FlowDirection = FlowDirection.LeftToRight,
-            AutoSize = true,
-            Padding = new Padding(0, 3, 8, 3)
+            Dock = DockStyle.Bottom,
+            Height = 36,
+            WrapContents = false,
+            Padding = new Padding(8, 6, 8, 6)
         };
+
+        _statusLabel.AutoSize = true;
+        _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+        _statusLabel.Margin = new Padding(0, 3, 24, 0);
 
         _prevPageButton.AutoSize = true;
         _prevPageButton.Margin = new Padding(3, 0, 3, 0);
@@ -109,18 +110,17 @@ public sealed class MainForm : Form
 
         _pageLabel.AutoSize = true;
         _pageLabel.TextAlign = ContentAlignment.MiddleCenter;
-        _pageLabel.Margin = new Padding(8, 6, 8, 0);
+        _pageLabel.Margin = new Padding(8, 3, 8, 0);
 
         _nextPageButton.AutoSize = true;
         _nextPageButton.Margin = new Padding(3, 0, 3, 0);
         _nextPageButton.Click += (_, _) => ChangePage(_currentPage + 1);
 
-        pagingPanel.Controls.Add(_prevPageButton);
-        pagingPanel.Controls.Add(_pageLabel);
-        pagingPanel.Controls.Add(_nextPageButton);
-
         bottomPanel.Controls.Add(_statusLabel);
-        bottomPanel.Controls.Add(pagingPanel);
+        bottomPanel.Controls.Add(_prevPageButton);
+        bottomPanel.Controls.Add(_pageLabel);
+        bottomPanel.Controls.Add(_nextPageButton);
+
         return bottomPanel;
     }
 
@@ -217,7 +217,11 @@ public sealed class MainForm : Form
         _bindingSource.DataSource = CustomerQuery.Paginate(sorted, _currentPage, PageSize).ToList();
         UpdateSortGlyphs();
 
-        _statusLabel.Text = $"Klientów: {sorted.Count} (z {_allCustomers.Count})";
+        // Spell out the actually-shown range - "Klientów: 9998" alone reads as "showing all
+        // 9998", which is exactly the confusion pagination is meant to avoid.
+        _statusLabel.Text = sorted.Count == 0
+            ? "Brak wyników"
+            : $"Wyświetlono {(_currentPage - 1) * PageSize + 1}–{Math.Min(_currentPage * PageSize, sorted.Count)} z {sorted.Count} (z {_allCustomers.Count} łącznie)";
         _pageLabel.Text = $"Strona {_currentPage} z {pageCount}";
         _prevPageButton.Enabled = _currentPage > 1;
         _nextPageButton.Enabled = _currentPage < pageCount;
