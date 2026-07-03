@@ -5,8 +5,8 @@ using Microsoft.Data.SqlClient;
 namespace CustomerCatalog.Tests;
 
 /// <summary>
-/// Fixture tworzący i sprzątający testową bazę na LocalDB. Współdzielony przez testy
-/// repozytorium (xUnit tworzy jedną instancję na klasę testową).
+/// Fixture that creates and tears down a test database on LocalDB. Shared by the
+/// repository tests (xUnit creates a single instance per test class).
 /// </summary>
 public sealed class DatabaseFixture : IDisposable
 {
@@ -39,24 +39,12 @@ public sealed class DatabaseFixture : IDisposable
     private void CreateTable()
     {
         using var connection = ConnectionFactory.CreateOpenConnection();
-        connection.Execute("""
-            IF OBJECT_ID(N'dbo.Customers', N'U') IS NOT NULL
-                DROP TABLE dbo.Customers;
-
-            CREATE TABLE dbo.Customers
-            (
-                Id        INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
-                Name      NVARCHAR(200)     NOT NULL,
-                Nip       NVARCHAR(10)      NOT NULL,
-                Address   NVARCHAR(300)     NULL,
-                Phone     NVARCHAR(30)      NULL,
-                Email     NVARCHAR(200)     NULL,
-                CreatedAt DATETIME2         NOT NULL CONSTRAINT DF_Customers_CreatedAt DEFAULT SYSUTCDATETIME()
-            );
-            """);
+        // Start from a clean, known schema (shared DDL from Core).
+        connection.Execute("IF OBJECT_ID(N'dbo.Customers', N'U') IS NOT NULL DROP TABLE dbo.Customers;");
+        connection.Execute(CustomerSchema.CreateTableSql);
     }
 
-    /// <summary>Czyści tabelę – wywoływane przez testy dla powtarzalnego stanu początkowego.</summary>
+    /// <summary>Clears the table – called by tests for a repeatable initial state.</summary>
     public void ClearCustomers()
     {
         using var connection = ConnectionFactory.CreateOpenConnection();
@@ -65,7 +53,7 @@ public sealed class DatabaseFixture : IDisposable
 
     public void Dispose()
     {
-        // Zamknięcie połączeń puli, aby dało się usunąć bazę.
+        // Close pooled connections so the database can be dropped.
         SqlConnection.ClearAllPools();
 
         using var connection = new SqlConnection(MasterConnectionString);

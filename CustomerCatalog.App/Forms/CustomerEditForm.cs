@@ -4,8 +4,8 @@ using CustomerCatalog.Core.Validation;
 namespace CustomerCatalog.App.Forms;
 
 /// <summary>
-/// Widok szczegółowy / edycji klienta. Po zapisaniu ustawia DialogResult.OK,
-/// a wywołujący formularz zapisuje zmiany do bazy i wraca do widoku głównego.
+/// Detail / edit view for a customer. On save it sets DialogResult.OK; the caller
+/// then persists the changes to the database and returns to the main view.
 /// </summary>
 public sealed class CustomerEditForm : Form
 {
@@ -15,7 +15,7 @@ public sealed class CustomerEditForm : Form
     private readonly TextBox _phoneBox = new();
     private readonly TextBox _emailBox = new();
 
-    /// <summary>Edytowany klient (uzupełniany polami po kliknięciu „Zapisz”).</summary>
+    /// <summary>The customer being edited (populated from the fields when "Save" is clicked).</summary>
     public Customer Customer { get; }
 
     public CustomerEditForm(Customer customer)
@@ -107,7 +107,7 @@ public sealed class CustomerEditForm : Form
 
     private void OnSave(object? sender, EventArgs e)
     {
-        // Przepisanie wartości z pól do modelu.
+        // Copy the field values back into the model.
         Customer.Name = _nameBox.Text.Trim();
         Customer.Nip = NipValidator.Normalize(_nipBox.Text);
         Customer.Address = _addressBox.Text.Trim();

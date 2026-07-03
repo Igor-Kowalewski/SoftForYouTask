@@ -6,7 +6,7 @@ using Xunit;
 namespace CustomerCatalog.Tests;
 
 /// <summary>
-/// Testy integracyjne repozytorium (Dapper na LocalDB). Wymagają zainstalowanego SQL Server LocalDB.
+/// Repository integration tests (Dapper against LocalDB). Require SQL Server LocalDB to be installed.
 /// </summary>
 public class CustomerRepositoryTests : IClassFixture<DatabaseFixture>
 {

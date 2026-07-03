@@ -1,12 +1,13 @@
 using CustomerCatalog.Core.Data;
 using CustomerCatalog.Core.Models;
+using CustomerCatalog.Core.Services;
 using Serilog;
 
 namespace CustomerCatalog.App.Forms;
 
 /// <summary>
-/// Główny widok – lista klientów z możliwością sortowania, filtrowania,
-/// dodawania, edycji (dwuklik) i usuwania.
+/// Main view – customer list with sorting, filtering, adding, editing
+/// (double-click) and deleting.
 /// </summary>
 public sealed class MainForm : Form
 {
@@ -37,39 +38,59 @@ public sealed class MainForm : Form
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(700, 400);
 
-        // --- Górny pasek: filtr + przyciski ---
-        var topPanel = new Panel { Dock = DockStyle.Top, Height = 44, Padding = new Padding(8) };
+        Controls.Add(_grid);
+        Controls.Add(BuildToolbar());
+        Controls.Add(BuildStatusBar());
+
+        ConfigureGrid();
+    }
+
+    private Control BuildToolbar()
+    {
+        // FlowLayoutPanel lays controls out left-to-right, so no manual coordinates are needed.
+        var toolbar = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Top,
+            Height = 44,
+            Padding = new Padding(8, 8, 8, 8),
+            WrapContents = false
+        };
 
         var filterLabel = new Label
         {
             Text = "Filtruj:",
             AutoSize = true,
-            Location = new Point(8, 14)
+            Anchor = AnchorStyles.Left,
+            Margin = new Padding(3, 8, 3, 3)
         };
 
-        _filterBox.Location = new Point(60, 10);
         _filterBox.Width = 260;
+        _filterBox.Margin = new Padding(3, 4, 12, 3);
         _filterBox.PlaceholderText = "nazwa, NIP, e-mail, telefon, adres...";
         _filterBox.TextChanged += (_, _) => RefreshView();
 
-        var addButton = MakeButton("Dodaj", 340);
-        addButton.Click += (_, _) => AddCustomer();
+        toolbar.Controls.Add(filterLabel);
+        toolbar.Controls.Add(_filterBox);
+        toolbar.Controls.Add(MakeButton("Dodaj", AddCustomer));
+        toolbar.Controls.Add(MakeButton("Edytuj", EditSelected));
+        toolbar.Controls.Add(MakeButton("Usuń", DeleteSelected));
+        toolbar.Controls.Add(MakeButton("Odśwież", LoadCustomers));
 
-        var editButton = MakeButton("Edytuj", 428);
-        editButton.Click += (_, _) => EditSelected();
+        return toolbar;
+    }
 
-        var deleteButton = MakeButton("Usuń", 516);
-        deleteButton.Click += (_, _) => DeleteSelected();
+    private Control BuildStatusBar()
+    {
+        var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 26 };
+        _statusLabel.Dock = DockStyle.Fill;
+        _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
+        _statusLabel.Padding = new Padding(8, 0, 0, 0);
+        bottomPanel.Controls.Add(_statusLabel);
+        return bottomPanel;
+    }
 
-        var refreshButton = MakeButton("Odśwież", 604);
-        refreshButton.Click += (_, _) => LoadCustomers();
-
-        topPanel.Controls.AddRange(new Control[]
-        {
-            filterLabel, _filterBox, addButton, editButton, deleteButton, refreshButton
-        });
-
-        // --- Grid ---
+    private void ConfigureGrid()
+    {
         _grid.Dock = DockStyle.Fill;
         _grid.AutoGenerateColumns = false;
         _grid.ReadOnly = true;
@@ -88,7 +109,7 @@ public sealed class MainForm : Form
             MakeColumn(nameof(Customer.Address), "Adres", 220),
             MakeColumn(nameof(Customer.Phone), "Telefon", 100),
             MakeColumn(nameof(Customer.Email), "E-mail", 160),
-            MakeColumn(nameof(Customer.CreatedAt), "Utworzono", 120));
+            MakeColumn(nameof(Customer.CreatedAt), "Utworzono", 120, format: "yyyy-MM-dd HH:mm"));
 
         _grid.CellDoubleClick += (_, e) =>
         {
@@ -96,35 +117,36 @@ public sealed class MainForm : Form
                 EditSelected();
         };
         _grid.ColumnHeaderMouseClick += OnColumnHeaderClicked;
-
-        // --- Dolny pasek statusu ---
-        var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 26 };
-        _statusLabel.Dock = DockStyle.Fill;
-        _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
-        _statusLabel.Padding = new Padding(8, 0, 0, 0);
-        bottomPanel.Controls.Add(_statusLabel);
-
-        Controls.Add(_grid);
-        Controls.Add(topPanel);
-        Controls.Add(bottomPanel);
     }
 
-    private static Button MakeButton(string text, int x) => new()
+    private static Button MakeButton(string text, Action onClick)
     {
-        Text = text,
-        Location = new Point(x, 8),
-        Width = 82,
-        Height = 26
-    };
+        var button = new Button
+        {
+            Text = text,
+            AutoSize = true,
+            Height = 26,
+            Margin = new Padding(3, 4, 3, 3),
+            Padding = new Padding(6, 0, 6, 0)
+        };
+        button.Click += (_, _) => onClick();
+        return button;
+    }
 
-    private static DataGridViewTextBoxColumn MakeColumn(string propertyName, string header, int width) => new()
+    private static DataGridViewTextBoxColumn MakeColumn(string propertyName, string header, int width, string? format = null)
     {
-        DataPropertyName = propertyName,
-        HeaderText = header,
-        Name = propertyName,
-        FillWeight = width,
-        SortMode = DataGridViewColumnSortMode.Programmatic
-    };
+        var column = new DataGridViewTextBoxColumn
+        {
+            DataPropertyName = propertyName,
+            HeaderText = header,
+            Name = propertyName,
+            FillWeight = width,
+            SortMode = DataGridViewColumnSortMode.Programmatic
+        };
+        if (format is not null)
+            column.DefaultCellStyle.Format = format;
+        return column;
+    }
 
     private void LoadCustomers()
     {
@@ -135,56 +157,23 @@ public sealed class MainForm : Form
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Nie udało się wczytać listy klientów.");
+            Log.Error(ex, "Failed to load the customer list.");
             MessageBox.Show(
                 $"Nie udało się wczytać danych:\n{ex.Message}",
                 "Błąd", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
-    /// <summary>Zastosowanie aktualnego filtra i sortowania oraz przepięcie źródła danych.</summary>
+    /// <summary>Applies the current filter and sort, then rebinds the data source.</summary>
     private void RefreshView()
     {
-        var filter = _filterBox.Text.Trim();
+        var filtered = CustomerQuery.Filter(_allCustomers, _filterBox.Text);
+        var sorted = CustomerQuery.Sort(filtered, _sortProperty, _sortAscending);
 
-        IEnumerable<Customer> view = _allCustomers;
-
-        if (filter.Length > 0)
-        {
-            view = view.Where(c =>
-                Contains(c.Name, filter) ||
-                Contains(c.Nip, filter) ||
-                Contains(c.Email, filter) ||
-                Contains(c.Phone, filter) ||
-                Contains(c.Address, filter));
-        }
-
-        view = ApplySort(view);
-
-        var list = view.ToList();
+        var list = sorted.ToList();
         _bindingSource.DataSource = list;
         UpdateSortGlyphs();
         _statusLabel.Text = $"Klientów: {list.Count} (z {_allCustomers.Count})";
-    }
-
-    private static bool Contains(string? value, string term) =>
-        value is not null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
-
-    private IEnumerable<Customer> ApplySort(IEnumerable<Customer> source)
-    {
-        Func<Customer, object?> key = _sortProperty switch
-        {
-            nameof(Customer.Nip) => c => c.Nip,
-            nameof(Customer.Address) => c => c.Address,
-            nameof(Customer.Phone) => c => c.Phone,
-            nameof(Customer.Email) => c => c.Email,
-            nameof(Customer.CreatedAt) => c => c.CreatedAt,
-            _ => c => c.Name
-        };
-
-        return _sortAscending
-            ? source.OrderBy(key)
-            : source.OrderByDescending(key);
     }
 
     private void OnColumnHeaderClicked(object? sender, DataGridViewCellMouseEventArgs e)
@@ -193,6 +182,7 @@ public sealed class MainForm : Form
         if (string.IsNullOrEmpty(property))
             return;
 
+        // Clicking the active column toggles direction; a new column starts ascending.
         if (_sortProperty == property)
             _sortAscending = !_sortAscending;
         else
@@ -226,12 +216,12 @@ public sealed class MainForm : Form
         try
         {
             _repository.Insert(form.Customer);
-            Log.Information("Dodano klienta {Name} (Id {Id}).", form.Customer.Name, form.Customer.Id);
+            Log.Information("Added customer {Name} (Id {Id}).", form.Customer.Name, form.Customer.Id);
             LoadCustomers();
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Nie udało się dodać klienta.");
+            Log.Error(ex, "Failed to add a customer.");
             MessageBox.Show($"Nie udało się zapisać: {ex.Message}", "Błąd",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
@@ -247,7 +237,7 @@ public sealed class MainForm : Form
             return;
         }
 
-        // Edycja na kopii – jeśli użytkownik anuluje, oryginał pozostaje nietknięty.
+        // Edit on a copy – if the user cancels, the original stays untouched.
         using var form = new CustomerEditForm(selected.Clone());
         if (form.ShowDialog(this) != DialogResult.OK)
             return;
@@ -255,12 +245,12 @@ public sealed class MainForm : Form
         try
         {
             _repository.Update(form.Customer);
-            Log.Information("Zaktualizowano klienta {Name} (Id {Id}).", form.Customer.Name, form.Customer.Id);
+            Log.Information("Updated customer {Name} (Id {Id}).", form.Customer.Name, form.Customer.Id);
             LoadCustomers();
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Nie udało się zaktualizować klienta {Id}.", form.Customer.Id);
+            Log.Error(ex, "Failed to update customer {Id}.", form.Customer.Id);
             MessageBox.Show($"Nie udało się zapisać: {ex.Message}", "Błąd",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
@@ -288,12 +278,12 @@ public sealed class MainForm : Form
         try
         {
             _repository.Delete(selected.Id);
-            Log.Information("Usunięto klienta {Name} (Id {Id}).", selected.Name, selected.Id);
+            Log.Information("Deleted customer {Name} (Id {Id}).", selected.Name, selected.Id);
             LoadCustomers();
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Nie udało się usunąć klienta {Id}.", selected.Id);
+            Log.Error(ex, "Failed to delete customer {Id}.", selected.Id);
             MessageBox.Show($"Nie udało się usunąć: {ex.Message}", "Błąd",
                 MessageBoxButtons.OK, MessageBoxIcon.Error);
         }

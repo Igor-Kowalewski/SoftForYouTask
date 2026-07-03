@@ -12,9 +12,9 @@ internal static class Program
     private static void Main()
     {
         LogSetup.Configure();
-        Log.Information("Uruchamianie aplikacji Katalog klientów.");
+        Log.Information("Starting Customer Catalog application.");
 
-        // Globalne przechwytywanie nieobsłużonych wyjątków → log do pliku + komunikat dla użytkownika.
+        // Global handling of unhandled exceptions → log to file + message to the user.
         Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
         Application.ThreadException += (_, e) => HandleException(e.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, e) => HandleException(e.ExceptionObject as Exception);
@@ -29,11 +29,11 @@ internal static class Program
                 .Build();
 
             var connectionString = configuration.GetConnectionString("CustomerCatalog")
-                ?? throw new InvalidOperationException("Brak connection stringa 'CustomerCatalog' w appsettings.json.");
+                ?? throw new InvalidOperationException("Missing 'CustomerCatalog' connection string in appsettings.json.");
 
             var connectionFactory = new SqlConnectionFactory(connectionString);
 
-            // Zapewnienie istnienia bazy/tabeli + dane testowe (Bogus) przy pierwszym uruchomieniu.
+            // Ensure the database/table exist and add test data (Bogus) on first run.
             new DatabaseInitializer(connectionFactory).EnsureCreatedAndSeeded();
 
             var repository = new CustomerRepository(connectionFactory);
@@ -45,7 +45,7 @@ internal static class Program
         }
         finally
         {
-            Log.Information("Zamykanie aplikacji.");
+            Log.Information("Shutting down application.");
             Log.CloseAndFlush();
         }
     }
@@ -55,7 +55,7 @@ internal static class Program
         if (ex is null)
             return;
 
-        Log.Error(ex, "Nieobsłużony błąd aplikacji.");
+        Log.Error(ex, "Unhandled application error.");
         MessageBox.Show(
             $"Wystąpił błąd:\n\n{ex.Message}\n\nSzczegóły zapisano w pliku logu.",
             "Błąd",

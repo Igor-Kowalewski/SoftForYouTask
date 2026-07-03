@@ -3,14 +3,14 @@ using Serilog;
 namespace CustomerCatalog.Core.Logging;
 
 /// <summary>
-/// Konfiguracja logowania (Serilog → plik). Błędy działania aplikacji trafiają do
-/// <c>logs/log-YYYYMMDD.txt</c> (rolowane dziennie).
+/// Logging configuration (Serilog → file). Application errors are written to
+/// <c>logs/log-YYYYMMDD.txt</c> (rolled daily).
 /// </summary>
 public static class LogSetup
 {
     /// <summary>
-    /// Konfiguruje globalny logger Serilog. <paramref name="logDirectory"/> domyślnie
-    /// wskazuje podkatalog "logs" obok pliku wykonywalnego.
+    /// Configures the global Serilog logger. <paramref name="logDirectory"/> defaults
+    /// to a "logs" subdirectory next to the executable.
     /// </summary>
     public static void Configure(string? logDirectory = null)
     {

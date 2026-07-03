@@ -4,17 +4,18 @@ using CustomerCatalog.Core.Models;
 namespace CustomerCatalog.Core.Validation;
 
 /// <summary>
-/// Waliduje model <see cref="Customer"/> przed zapisem.
+/// Validates a <see cref="Customer"/> before it is saved.
 /// </summary>
 public static class CustomerValidator
 {
-    // Prosty, praktyczny wzorzec e-mail (nie pełny RFC, ale wystarczający dla katalogu).
+    // Simple, practical e-mail pattern (not full RFC, but sufficient for the catalog).
     private static readonly Regex EmailRegex = new(
         @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     /// <summary>
-    /// Zwraca listę komunikatów błędów. Pusta lista oznacza, że model jest poprawny.
+    /// Returns a list of error messages. An empty list means the model is valid.
+    /// The messages are user-facing and therefore in Polish (the application UI language).
     /// </summary>
     public static IReadOnlyList<string> Validate(Customer customer)
     {

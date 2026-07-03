@@ -33,7 +33,8 @@ CustomerCatalog.slnx
 ├─ CustomerCatalog.Core     # Logika i dostęp do danych (testowalne, bez zależności od UI)
 │  ├─ Models/Customer.cs
 │  ├─ Validation/           # NipValidator, CustomerValidator
-│  ├─ Data/                 # IDbConnectionFactory, CustomerRepository (Dapper), DatabaseInitializer
+│  ├─ Services/             # CustomerQuery (filtrowanie i sortowanie – testowalne)
+│  ├─ Data/                 # IDbConnectionFactory, CustomerRepository (Dapper), DatabaseInitializer, CustomerSchema
 │  └─ Logging/LogSetup.cs   # Konfiguracja Serilog
 ├─ CustomerCatalog.App      # Aplikacja WinForms
 │  ├─ Program.cs            # Start, globalne łapanie wyjątków, inicjalizacja bazy
@@ -95,6 +96,7 @@ Testy obejmują:
 - **integracyjne** repozytorium (Dapper) na osobnej bazie `CustomerCatalog_Test` w LocalDB
   (pełny cykl Insert → GetById → Update → GetAll → Delete; baza jest tworzona i usuwana automatycznie),
 - **jednostkowe** walidacji NIP (suma kontrolna) oraz modelu klienta,
+- **jednostkowe** filtrowania i sortowania (`CustomerQuery`),
 - weryfikację, że dane generowane przez Bogus są poprawne.
 
 ## Publikacja na GitHub

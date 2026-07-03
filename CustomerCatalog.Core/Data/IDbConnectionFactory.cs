@@ -3,14 +3,14 @@ using System.Data;
 namespace CustomerCatalog.Core.Data;
 
 /// <summary>
-/// Tworzy połączenia do bazy danych. Abstrakcja ułatwia testowanie
-/// (można podstawić inny connection string, np. testową bazę).
+/// Creates database connections. The abstraction makes testing easier
+/// (a different connection string, e.g. a test database, can be injected).
 /// </summary>
 public interface IDbConnectionFactory
 {
-    /// <summary>Connection string wskazujący na docelową bazę katalogu.</summary>
+    /// <summary>Connection string pointing at the target catalog database.</summary>
     string ConnectionString { get; }
 
-    /// <summary>Zwraca nowe, otwarte połączenie.</summary>
+    /// <summary>Returns a new, open connection.</summary>
     IDbConnection CreateOpenConnection();
 }

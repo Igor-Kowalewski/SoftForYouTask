@@ -1,14 +1,15 @@
 namespace CustomerCatalog.Core.Validation;
 
 /// <summary>
-/// Walidacja polskiego numeru NIP (10 cyfr + cyfra kontrolna).
+/// Validation of a Polish NIP number (10 digits + check digit).
 /// </summary>
 public static class NipValidator
 {
     private static readonly int[] Weights = { 6, 5, 7, 2, 3, 4, 5, 6, 7 };
 
     /// <summary>
-    /// Sprawdza poprawność NIP. Akceptuje wartości z myślnikami/spacjami (np. "123-456-32-18").
+    /// Checks whether the NIP is valid. Accepts values with separators such as
+    /// dashes or spaces (e.g. "123-456-32-18").
     /// </summary>
     public static bool IsValid(string? nip)
     {
@@ -19,7 +20,7 @@ public static class NipValidator
         if (digits.Length != 10)
             return false;
 
-        // NIP z samych identycznych cyfr (np. 0000000000) jest formalnie niepoprawny.
+        // A NIP made of identical digits (e.g. 0000000000) is formally invalid.
         if (digits.All(c => c == digits[0]))
             return false;
 
@@ -29,12 +30,12 @@ public static class NipValidator
 
         var checkDigit = sum % 11;
         if (checkDigit == 10)
-            return false; // NIP z taką sumą kontrolną nie istnieje.
+            return false; // No valid NIP produces a check digit of 10.
 
         return checkDigit == digits[9] - '0';
     }
 
-    /// <summary>Usuwa separatory, zostawiając same cyfry.</summary>
+    /// <summary>Removes separators, leaving only the digits.</summary>
     public static string Normalize(string? nip) =>
         string.IsNullOrEmpty(nip) ? string.Empty : new string(nip.Where(char.IsDigit).ToArray());
 }

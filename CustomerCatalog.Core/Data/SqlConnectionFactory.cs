@@ -4,7 +4,7 @@ using Microsoft.Data.SqlClient;
 namespace CustomerCatalog.Core.Data;
 
 /// <summary>
-/// Fabryka połączeń SQL Server (LocalDB) oparta na Microsoft.Data.SqlClient.
+/// SQL Server (LocalDB) connection factory based on Microsoft.Data.SqlClient.
 /// </summary>
 public sealed class SqlConnectionFactory : IDbConnectionFactory
 {
@@ -13,7 +13,7 @@ public sealed class SqlConnectionFactory : IDbConnectionFactory
     public SqlConnectionFactory(string connectionString)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
-            throw new ArgumentException("Connection string nie może być pusty.", nameof(connectionString));
+            throw new ArgumentException("Connection string must not be empty.", nameof(connectionString));
 
         ConnectionString = connectionString;
     }

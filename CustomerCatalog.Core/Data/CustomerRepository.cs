@@ -4,7 +4,7 @@ using Dapper;
 namespace CustomerCatalog.Core.Data;
 
 /// <summary>
-/// Implementacja repozytorium oparta na Dapperze (parametryzowane zapytania SQL).
+/// Dapper-based repository implementation (parameterized SQL queries).
 /// </summary>
 public sealed class CustomerRepository : ICustomerRepository
 {
