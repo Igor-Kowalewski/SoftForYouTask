@@ -9,7 +9,13 @@ namespace CustomerCatalog.Core.Services;
 public static class CustomerQuery
 {
     /// <summary>
-    /// Returns customers whose name, NIP, e-mail, phone or address contains
+    /// Format used both for displaying CreatedAt in the grid and for matching it in Filter,
+    /// so the two never drift apart - what's on screen is exactly what's searchable.
+    /// </summary>
+    public const string CreatedAtDisplayFormat = "yyyy-MM-dd HH:mm";
+
+    /// <summary>
+    /// Returns customers whose name, NIP, e-mail, phone, address or creation date contains
     /// <paramref name="term"/> (case-insensitive). An empty term returns all.
     /// </summary>
     public static IEnumerable<Customer> Filter(IEnumerable<Customer> source, string? term)
@@ -23,7 +29,8 @@ public static class CustomerQuery
             Contains(c.Nip.Value, needle) ||
             Contains(c.Email.Value, needle) ||
             Contains(c.Phone, needle) ||
-            Contains(c.Address.ToString(), needle));
+            Contains(c.Address.ToString(), needle) ||
+            Contains(c.CreatedAt.ToString(CreatedAtDisplayFormat), needle));
     }
 
     /// <summary>

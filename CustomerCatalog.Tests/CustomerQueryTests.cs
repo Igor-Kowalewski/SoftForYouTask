@@ -68,6 +68,27 @@ public class CustomerQueryTests
     }
 
     [Fact]
+    public void Filter_MatchesCreatedAtFullDate()
+    {
+        CustomerQuery.Filter(Sample(), "2024-01-03").Should().ContainSingle()
+            .Which.Name.Should().Be("Zeta");
+    }
+
+    [Fact]
+    public void Filter_MatchesCreatedAtYearMonthPrefix()
+    {
+        // All three share the same year-month - this is the exact shape of input ("2026-")
+        // that used to match nothing at all, since CreatedAt wasn't searched.
+        CustomerQuery.Filter(Sample(), "2024-01").Should().HaveCount(3);
+    }
+
+    [Fact]
+    public void Filter_MatchesCreatedAtYearPrefix()
+    {
+        CustomerQuery.Filter(Sample(), "2024-").Should().HaveCount(3);
+    }
+
+    [Fact]
     public void Sort_ByName_Ascending()
     {
         CustomerQuery.Sort(Sample(), nameof(Customer.Name), ascending: true)

@@ -11,9 +11,10 @@ namespace CustomerCatalog.App.Forms;
 /// </summary>
 public sealed class MainForm : Form
 {
-    // DataGridView stays smooth with a few hundred bound rows; binding all 10,000+ seeded
-    // customers at once is what made window resizing feel laggy, hence pagination.
-    private const int PageSize = 200;
+    // Kept small - even with pagination, DataGridView's Fill column-resize recalculation on
+    // every intermediate WM_SIZE during a drag has overhead that isn't strictly O(columns) in
+    // practice, so page size alone matters for how live-resize feels.
+    private const int PageSize = 50;
 
     private readonly ICustomerRepository _repository;
 
@@ -51,6 +52,14 @@ public sealed class MainForm : Form
         Controls.Add(BuildStatusBar());
 
         ConfigureGrid();
+
+        // While the user is actively dragging the window edge, WM_SIZE fires continuously and
+        // each one would otherwise trigger a full Dock/Fill-column relayout of the grid - that
+        // per-frame recalculation is what "feels laggy". Deferring it to a single pass when the
+        // drag ends keeps the drag itself smooth; the grid still snaps to the right size at that
+        // point. Doesn't apply to maximize/restore, which resize in one shot anyway.
+        ResizeBegin += (_, _) => SuspendLayout();
+        ResizeEnd += (_, _) => ResumeLayout(true);
     }
 
     private Control BuildToolbar()
@@ -74,7 +83,7 @@ public sealed class MainForm : Form
 
         _filterBox.Width = 260;
         _filterBox.Margin = new Padding(3, 4, 12, 3);
-        _filterBox.PlaceholderText = "nazwa, NIP, e-mail, telefon, adres...";
+        _filterBox.PlaceholderText = "nazwa, NIP, e-mail, telefon, adres, data (RRRR-MM-DD)...";
         _filterBox.TextChanged += (_, _) => { _currentPage = 1; RefreshView(); };
 
         toolbar.Controls.Add(filterLabel);
@@ -150,7 +159,7 @@ public sealed class MainForm : Form
             MakeColumn(nameof(Customer.Address), "Adres", 220),
             MakeColumn(nameof(Customer.Phone), "Telefon", 100),
             MakeColumn(nameof(Customer.Email), "E-mail", 160),
-            MakeColumn(nameof(Customer.CreatedAt), "Utworzono", 120, format: "yyyy-MM-dd HH:mm"));
+            MakeColumn(nameof(Customer.CreatedAt), "Utworzono", 120, format: CustomerQuery.CreatedAtDisplayFormat));
 
         _grid.CellDoubleClick += (_, e) =>
         {

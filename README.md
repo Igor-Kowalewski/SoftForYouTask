@@ -127,9 +127,11 @@ Connection string można zmienić w `CustomerCatalog.App/appsettings.json`.
 
 ## Obsługa aplikacji
 
-- **Przegląd** – lista klientów ładowana z bazy w oknie głównym.
+- **Przegląd** – lista klientów ładowana z bazy w oknie głównym, stronicowana po 50 (przyciski
+  *Poprzednia* / *Następna* w pasku statusu).
 - **Sortowanie** – kliknięcie nagłówka kolumny (ponowne kliknięcie odwraca kierunek).
-- **Filtrowanie** – pole „Filtruj” zawęża listę po nazwie, NIP, e-mailu, telefonie lub adresie.
+- **Filtrowanie** – pole „Filtruj” zawęża listę po nazwie, NIP, e-mailu, telefonie, adresie lub
+  dacie utworzenia (format `RRRR-MM-DD`, np. „2026-04” pokaże wszystkich klientów z kwietnia 2026).
 - **Dodawanie** – przycisk *Dodaj* otwiera formularz nowego klienta.
 - **Edycja** – **dwuklik** w wiersz (lub przycisk *Edytuj*) otwiera widok szczegółowy;
   po zapisaniu następuje powrót do widoku głównego.
