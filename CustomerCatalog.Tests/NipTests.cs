@@ -50,4 +50,16 @@ public class NipTests
     {
         Nip.Parse("526-025-02-74").Should().Be(Nip.Parse("5260250274"));
     }
+
+    [Fact]
+    public void Validate_ReturnsNull_ForValidNip()
+    {
+        Nip.Validate("5260250274").Should().BeNull();
+    }
+
+    [Fact]
+    public void Validate_ReturnsMessage_ForInvalidNip()
+    {
+        Nip.Validate("invalid").Should().Be(Nip.InvalidFormatMessage);
+    }
 }

@@ -14,7 +14,7 @@ public static class CustomerSchema
         (
             Id         INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
             Name       NVARCHAR(200)     NOT NULL,
-            Nip        NVARCHAR(10)      NOT NULL,
+            Nip        NVARCHAR(10)      NOT NULL CONSTRAINT UQ_Customers_Nip UNIQUE,
             Street     NVARCHAR(200)     NOT NULL,
             PostalCode NVARCHAR(10)      NOT NULL,
             City       NVARCHAR(100)     NOT NULL,

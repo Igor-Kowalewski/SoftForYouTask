@@ -83,4 +83,33 @@ public class CustomerValidatorTests
         CustomerValidator.TryValidate(input, out _, out var errors).Should().BeFalse();
         errors.Should().HaveCount(3);
     }
+
+    [Theory]
+    [InlineData("Firma testowa", null)]
+    [InlineData("", "Nazwa jest wymagana.")]
+    [InlineData("   ", "Nazwa jest wymagana.")]
+    public void ValidateName_MatchesTryValidate(string name, string? expectedMessage)
+    {
+        CustomerValidator.ValidateName(name).Should().Be(expectedMessage);
+    }
+
+    [Fact]
+    public void ValidateName_RejectsTooLong()
+    {
+        CustomerValidator.ValidateName(new string('a', 201)).Should().Contain("200 znaków");
+    }
+
+    [Theory]
+    [InlineData("123 456 789", null)]
+    [InlineData("", null)] // phone is optional
+    public void ValidatePhone_MatchesTryValidate(string phone, string? expectedMessage)
+    {
+        CustomerValidator.ValidatePhone(phone).Should().Be(expectedMessage);
+    }
+
+    [Fact]
+    public void ValidatePhone_RejectsTooLong()
+    {
+        CustomerValidator.ValidatePhone(new string('1', 31)).Should().Contain("30 znaków");
+    }
 }

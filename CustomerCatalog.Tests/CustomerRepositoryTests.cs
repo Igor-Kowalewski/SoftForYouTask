@@ -1,6 +1,7 @@
 using CustomerCatalog.Core.Data;
 using CustomerCatalog.Core.Models;
 using FluentAssertions;
+using Microsoft.Data.SqlClient;
 using Xunit;
 
 namespace CustomerCatalog.Tests;
@@ -20,10 +21,12 @@ public class CustomerRepositoryTests : IClassFixture<DatabaseFixture>
         _repository = new CustomerRepository(_fixture.ConnectionFactory);
     }
 
-    private static Customer NewCustomer(string name = "Firma testowa") => new()
+    // Distinct, checksum-valid NIPs (Nip is a UNIQUE column) so tests that insert more than
+    // one customer don't collide with each other.
+    private static Customer NewCustomer(string name = "Firma testowa", string nip = "5260250274") => new()
     {
         Name = name,
-        Nip = Nip.Parse("5260250274"),
+        Nip = Nip.Parse(nip),
         Address = Address.Parse("ul. Testowa 1", "00-001", "Warszawa"),
         Phone = "123 456 789",
         Email = Email.Parse("kontakt@example.com")
@@ -45,6 +48,16 @@ public class CustomerRepositoryTests : IClassFixture<DatabaseFixture>
         loaded.Nip.Should().Be(customer.Nip);
         loaded.Address.Should().Be(customer.Address);
         loaded.Email.Should().Be(customer.Email);
+    }
+
+    [Fact]
+    public void Insert_Throws_WhenNipAlreadyExists()
+    {
+        _repository.Insert(NewCustomer("Pierwszy", "5260250274"));
+
+        var act = () => _repository.Insert(NewCustomer("Drugi", "5260250274"));
+
+        act.Should().Throw<SqlException>();
     }
 
     [Fact]
@@ -99,13 +112,36 @@ public class CustomerRepositoryTests : IClassFixture<DatabaseFixture>
     [Fact]
     public void GetAll_ReturnsInsertedCustomers_OrderedByName()
     {
-        _repository.Insert(NewCustomer("Zeta"));
-        _repository.Insert(NewCustomer("Alfa"));
-        _repository.Insert(NewCustomer("Beta"));
+        _repository.Insert(NewCustomer("Zeta", "1357924688"));
+        _repository.Insert(NewCustomer("Alfa", "5222222229"));
+        _repository.Insert(NewCustomer("Beta", "9876543210"));
 
         var all = _repository.GetAll();
 
         all.Should().HaveCount(3);
         all.Select(c => c.Name).Should().ContainInOrder("Alfa", "Beta", "Zeta");
+    }
+
+    [Fact]
+    public void ExistsByNip_ReturnsFalse_WhenNipUnused()
+    {
+        _repository.ExistsByNip("5260250274", excludeId: null).Should().BeFalse();
+    }
+
+    [Fact]
+    public void ExistsByNip_ReturnsTrue_WhenAnotherCustomerHasSameNip()
+    {
+        _repository.Insert(NewCustomer("Pierwszy", "5260250274"));
+
+        _repository.ExistsByNip("5260250274", excludeId: null).Should().BeTrue();
+    }
+
+    [Fact]
+    public void ExistsByNip_ReturnsFalse_WhenOnlyMatchIsTheExcludedCustomer()
+    {
+        var customer = NewCustomer("Ktoś", "5260250274");
+        _repository.Insert(customer);
+
+        _repository.ExistsByNip("5260250274", excludeId: customer.Id).Should().BeFalse();
     }
 }

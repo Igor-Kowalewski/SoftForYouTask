@@ -82,6 +82,14 @@ public sealed class CustomerRepository : ICustomerRepository
         return connection.Execute(sql, new { Id = id }) > 0;
     }
 
+    public bool ExistsByNip(string nip, int? excludeId)
+    {
+        using var connection = _connectionFactory.CreateOpenConnection();
+        const string sql = "SELECT COUNT(1) FROM Customers WHERE Nip = @Nip AND Id <> @ExcludeId;";
+        var count = connection.ExecuteScalar<int>(sql, new { Nip = nip, ExcludeId = excludeId ?? 0 });
+        return count > 0;
+    }
+
     private static Customer ToCustomer(CustomerRow row) => new()
     {
         Id = row.Id,

@@ -8,6 +8,9 @@ namespace CustomerCatalog.Core.Models;
 /// </summary>
 public sealed record Email
 {
+    /// <summary>User-facing message used both for inline field validation and the final save check.</summary>
+    public const string InvalidFormatMessage = "E-mail ma niepoprawny format.";
+
     // Simple, practical e-mail pattern (not full RFC, but sufficient for the catalog).
     private static readonly Regex Pattern = new(
         @"^[^@\s]+@[^@\s]+\.[^@\s]+$",
@@ -34,6 +37,9 @@ public sealed record Email
         result = null;
         return false;
     }
+
+    /// <summary>Validates the format. Returns null when valid, otherwise a Polish error message.</summary>
+    public static string? Validate(string? value) => TryParse(value, out _) ? null : InvalidFormatMessage;
 
     public override string ToString() => Value;
 }

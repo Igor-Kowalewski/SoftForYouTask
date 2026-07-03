@@ -33,27 +33,25 @@ public sealed record Address
     /// <summary>
     /// Attempts to parse an address from its parts. Returns false without throwing when the
     /// input is invalid; <paramref name="errors"/> then contains one message per failed field
-    /// (Polish, user-facing) so a caller can display them all at once.
+    /// (Polish, user-facing) so a caller can display them all at once. Delegates to the
+    /// per-field Validate* methods below, which are also used for inline field validation in
+    /// the UI, so both places agree on the exact same rules.
     /// </summary>
     public static bool TryParse(string? street, string? postalCode, string? city, out Address? address, out IReadOnlyList<string> errors)
     {
         var errorList = new List<string>();
 
-        var streetValue = street?.Trim() ?? string.Empty;
-        if (streetValue.Length == 0)
-            errorList.Add("Ulica jest wymagana.");
-        else if (streetValue.Length > 200)
-            errorList.Add("Ulica nie może przekraczać 200 znaków.");
+        var streetError = ValidateStreet(street);
+        if (streetError is not null)
+            errorList.Add(streetError);
 
-        var postalCodeValue = postalCode?.Trim() ?? string.Empty;
-        if (!PostalCodeRegex.IsMatch(postalCodeValue))
-            errorList.Add("Kod pocztowy jest niepoprawny (oczekiwany format NN-NNN).");
+        var postalCodeError = ValidatePostalCode(postalCode);
+        if (postalCodeError is not null)
+            errorList.Add(postalCodeError);
 
-        var cityValue = city?.Trim() ?? string.Empty;
-        if (cityValue.Length == 0)
-            errorList.Add("Miasto jest wymagane.");
-        else if (cityValue.Length > 100)
-            errorList.Add("Miasto nie może przekraczać 100 znaków.");
+        var cityError = ValidateCity(city);
+        if (cityError is not null)
+            errorList.Add(cityError);
 
         if (errorList.Count > 0)
         {
@@ -62,9 +60,38 @@ public sealed record Address
             return false;
         }
 
-        address = new Address(streetValue, postalCodeValue, cityValue);
+        address = new Address(street!.Trim(), postalCode!.Trim(), city!.Trim());
         errors = Array.Empty<string>();
         return true;
+    }
+
+    /// <summary>Validates the street. Returns null when valid, otherwise a Polish error message.</summary>
+    public static string? ValidateStreet(string? street)
+    {
+        var value = street?.Trim() ?? string.Empty;
+        if (value.Length == 0)
+            return "Ulica jest wymagana.";
+        if (value.Length > 200)
+            return "Ulica nie może przekraczać 200 znaków.";
+        return null;
+    }
+
+    /// <summary>Validates the postal code (Polish NN-NNN format). Returns null when valid, otherwise a Polish error message.</summary>
+    public static string? ValidatePostalCode(string? postalCode)
+    {
+        var value = postalCode?.Trim() ?? string.Empty;
+        return PostalCodeRegex.IsMatch(value) ? null : "Kod pocztowy jest niepoprawny (oczekiwany format NN-NNN).";
+    }
+
+    /// <summary>Validates the city. Returns null when valid, otherwise a Polish error message.</summary>
+    public static string? ValidateCity(string? city)
+    {
+        var value = city?.Trim() ?? string.Empty;
+        if (value.Length == 0)
+            return "Miasto jest wymagane.";
+        if (value.Length > 100)
+            return "Miasto nie może przekraczać 100 znaków.";
+        return null;
     }
 
     public override string ToString() => $"{Street}, {PostalCode} {City}";

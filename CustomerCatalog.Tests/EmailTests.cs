@@ -41,4 +41,16 @@ public class EmailTests
     {
         Email.Parse("test@example.com").Should().Be(Email.Parse("test@example.com"));
     }
+
+    [Fact]
+    public void Validate_ReturnsNull_ForValidEmail()
+    {
+        Email.Validate("test@example.com").Should().BeNull();
+    }
+
+    [Fact]
+    public void Validate_ReturnsMessage_ForInvalidEmail()
+    {
+        Email.Validate("invalid").Should().Be(Email.InvalidFormatMessage);
+    }
 }

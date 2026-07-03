@@ -94,4 +94,34 @@ public class CustomerQueryTests
         CustomerQuery.Sort(Sample(), "DoesNotExist", ascending: true)
             .Select(c => c.Name).Should().ContainInOrder("Alfa", "Beta", "Zeta");
     }
+
+    [Fact]
+    public void Paginate_ReturnsRequestedSlice()
+    {
+        var sorted = CustomerQuery.Sort(Sample(), nameof(Customer.Name), ascending: true).ToList();
+
+        CustomerQuery.Paginate(sorted, page: 1, pageSize: 2)
+            .Select(c => c.Name).Should().ContainInOrder("Alfa", "Beta");
+
+        CustomerQuery.Paginate(sorted, page: 2, pageSize: 2)
+            .Select(c => c.Name).Should().ContainInOrder("Zeta");
+    }
+
+    [Fact]
+    public void Paginate_ReturnsEmpty_WhenPageBeyondLastPage()
+    {
+        CustomerQuery.Paginate(Sample(), page: 5, pageSize: 2).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0, 200, 1)]
+    [InlineData(1, 200, 1)]
+    [InlineData(200, 200, 1)]
+    [InlineData(201, 200, 2)]
+    [InlineData(10_000, 200, 50)]
+    [InlineData(10_001, 200, 51)]
+    public void PageCount_ComputesExpectedPages(int totalCount, int pageSize, int expected)
+    {
+        CustomerQuery.PageCount(totalCount, pageSize).Should().Be(expected);
+    }
 }

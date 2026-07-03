@@ -11,16 +11,24 @@ namespace CustomerCatalog.App.Forms;
 /// </summary>
 public sealed class MainForm : Form
 {
+    // DataGridView stays smooth with a few hundred bound rows; binding all 10,000+ seeded
+    // customers at once is what made window resizing feel laggy, hence pagination.
+    private const int PageSize = 200;
+
     private readonly ICustomerRepository _repository;
 
     private readonly DataGridView _grid = new();
     private readonly TextBox _filterBox = new();
     private readonly Label _statusLabel = new();
+    private readonly Label _pageLabel = new();
+    private readonly Button _prevPageButton = new() { Text = "◀ Poprzednia" };
+    private readonly Button _nextPageButton = new() { Text = "Następna ▶" };
     private readonly BindingSource _bindingSource = new();
 
     private List<Customer> _allCustomers = new();
     private string _sortProperty = nameof(Customer.Name);
     private bool _sortAscending = true;
+    private int _currentPage = 1;
 
     public MainForm(ICustomerRepository repository)
     {
@@ -67,7 +75,7 @@ public sealed class MainForm : Form
         _filterBox.Width = 260;
         _filterBox.Margin = new Padding(3, 4, 12, 3);
         _filterBox.PlaceholderText = "nazwa, NIP, e-mail, telefon, adres...";
-        _filterBox.TextChanged += (_, _) => RefreshView();
+        _filterBox.TextChanged += (_, _) => { _currentPage = 1; RefreshView(); };
 
         toolbar.Controls.Add(filterLabel);
         toolbar.Controls.Add(_filterBox);
@@ -81,12 +89,45 @@ public sealed class MainForm : Form
 
     private Control BuildStatusBar()
     {
-        var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 26 };
+        var bottomPanel = new Panel { Dock = DockStyle.Bottom, Height = 34 };
+
         _statusLabel.Dock = DockStyle.Fill;
         _statusLabel.TextAlign = ContentAlignment.MiddleLeft;
         _statusLabel.Padding = new Padding(8, 0, 0, 0);
+
+        var pagingPanel = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Right,
+            FlowDirection = FlowDirection.LeftToRight,
+            AutoSize = true,
+            Padding = new Padding(0, 3, 8, 3)
+        };
+
+        _prevPageButton.AutoSize = true;
+        _prevPageButton.Margin = new Padding(3, 0, 3, 0);
+        _prevPageButton.Click += (_, _) => ChangePage(_currentPage - 1);
+
+        _pageLabel.AutoSize = true;
+        _pageLabel.TextAlign = ContentAlignment.MiddleCenter;
+        _pageLabel.Margin = new Padding(8, 6, 8, 0);
+
+        _nextPageButton.AutoSize = true;
+        _nextPageButton.Margin = new Padding(3, 0, 3, 0);
+        _nextPageButton.Click += (_, _) => ChangePage(_currentPage + 1);
+
+        pagingPanel.Controls.Add(_prevPageButton);
+        pagingPanel.Controls.Add(_pageLabel);
+        pagingPanel.Controls.Add(_nextPageButton);
+
         bottomPanel.Controls.Add(_statusLabel);
+        bottomPanel.Controls.Add(pagingPanel);
         return bottomPanel;
+    }
+
+    private void ChangePage(int page)
+    {
+        _currentPage = page;
+        RefreshView();
     }
 
     private void ConfigureGrid()
@@ -164,16 +205,22 @@ public sealed class MainForm : Form
         }
     }
 
-    /// <summary>Applies the current filter and sort, then rebinds the data source.</summary>
+    /// <summary>Applies the current filter and sort, then rebinds the data source to just the current page.</summary>
     private void RefreshView()
     {
         var filtered = CustomerQuery.Filter(_allCustomers, _filterBox.Text);
-        var sorted = CustomerQuery.Sort(filtered, _sortProperty, _sortAscending);
+        var sorted = CustomerQuery.Sort(filtered, _sortProperty, _sortAscending).ToList();
 
-        var list = sorted.ToList();
-        _bindingSource.DataSource = list;
+        var pageCount = CustomerQuery.PageCount(sorted.Count, PageSize);
+        _currentPage = Math.Clamp(_currentPage, 1, pageCount);
+
+        _bindingSource.DataSource = CustomerQuery.Paginate(sorted, _currentPage, PageSize).ToList();
         UpdateSortGlyphs();
-        _statusLabel.Text = $"Klientów: {list.Count} (z {_allCustomers.Count})";
+
+        _statusLabel.Text = $"Klientów: {sorted.Count} (z {_allCustomers.Count})";
+        _pageLabel.Text = $"Strona {_currentPage} z {pageCount}";
+        _prevPageButton.Enabled = _currentPage > 1;
+        _nextPageButton.Enabled = _currentPage < pageCount;
     }
 
     private void OnColumnHeaderClicked(object? sender, DataGridViewCellMouseEventArgs e)
@@ -191,6 +238,7 @@ public sealed class MainForm : Form
             _sortAscending = true;
         }
 
+        _currentPage = 1;
         RefreshView();
     }
 
@@ -209,7 +257,7 @@ public sealed class MainForm : Form
 
     private void AddCustomer()
     {
-        using var form = new CustomerEditForm(null);
+        using var form = new CustomerEditForm(_repository, null);
         if (form.ShowDialog(this) != DialogResult.OK)
             return;
 
@@ -239,7 +287,7 @@ public sealed class MainForm : Form
 
         // CustomerEditForm only reads from the passed-in customer to prefill its fields and
         // never mutates it, so the original stays untouched if the user cancels.
-        using var form = new CustomerEditForm(selected);
+        using var form = new CustomerEditForm(_repository, selected);
         if (form.ShowDialog(this) != DialogResult.OK)
             return;
 

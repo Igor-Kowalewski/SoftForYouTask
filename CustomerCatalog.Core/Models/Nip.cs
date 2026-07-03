@@ -7,6 +7,9 @@ namespace CustomerCatalog.Core.Models;
 /// </summary>
 public sealed record Nip
 {
+    /// <summary>User-facing message used both for inline field validation and the final save check.</summary>
+    public const string InvalidFormatMessage = "NIP jest niepoprawny (wymagane 10 cyfr z prawidłową sumą kontrolną).";
+
     private static readonly int[] Weights = { 6, 5, 7, 2, 3, 4, 5, 6, 7 };
 
     /// <summary>The 10-digit NIP, normalized (no separators).</summary>
@@ -34,6 +37,9 @@ public sealed record Nip
 
     /// <summary>Checks validity without constructing an instance.</summary>
     public static bool IsValid(string? value) => TryParse(value, out _);
+
+    /// <summary>Validates the format only (not uniqueness). Returns null when valid, otherwise a Polish error message.</summary>
+    public static string? Validate(string? value) => IsValid(value) ? null : InvalidFormatMessage;
 
     private static string ExtractDigits(string? value) =>
         value is null ? string.Empty : new string(value.Where(char.IsDigit).ToArray());

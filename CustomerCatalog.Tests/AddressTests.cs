@@ -73,4 +73,29 @@ public class AddressTests
         Address.Parse("ul. Testowa 1", "00-001", "Warszawa")
             .Should().Be(Address.Parse("ul. Testowa 1", "00-001", "Warszawa"));
     }
+
+    [Theory]
+    [InlineData("ul. Kwiatowa 5", null)]
+    [InlineData("", "Ulica jest wymagana.")]
+    [InlineData("   ", "Ulica jest wymagana.")]
+    public void ValidateStreet_MatchesTryParse(string street, string? expectedMessage)
+    {
+        Address.ValidateStreet(street).Should().Be(expectedMessage);
+    }
+
+    [Theory]
+    [InlineData("00-001", null)]
+    [InlineData("invalid", "Kod pocztowy jest niepoprawny (oczekiwany format NN-NNN).")]
+    public void ValidatePostalCode_MatchesTryParse(string postalCode, string? expectedMessage)
+    {
+        Address.ValidatePostalCode(postalCode).Should().Be(expectedMessage);
+    }
+
+    [Theory]
+    [InlineData("Warszawa", null)]
+    [InlineData("", "Miasto jest wymagane.")]
+    public void ValidateCity_MatchesTryParse(string city, string? expectedMessage)
+    {
+        Address.ValidateCity(city).Should().Be(expectedMessage);
+    }
 }

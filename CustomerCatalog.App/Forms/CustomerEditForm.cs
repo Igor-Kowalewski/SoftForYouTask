@@ -1,3 +1,4 @@
+using CustomerCatalog.Core.Data;
 using CustomerCatalog.Core.Models;
 using CustomerCatalog.Core.Validation;
 
@@ -9,6 +10,14 @@ namespace CustomerCatalog.App.Forms;
 /// </summary>
 public sealed class CustomerEditForm : Form
 {
+    // Fixed row height (rather than the TableLayoutPanel's default equal-percent rows) keeps
+    // each row exactly as tall as a single-line input needs, so the label next to it can be
+    // reliably centered in the same space instead of drifting within extra slack.
+    private const float RowHeight = 32f;
+
+    private readonly ICustomerRepository _repository;
+    private readonly ErrorProvider _errorProvider = new() { BlinkStyle = ErrorBlinkStyle.NeverBlink };
+
     private readonly TextBox _nameBox = new();
     private readonly TextBox _nipBox = new();
     private readonly TextBox _streetBox = new();
@@ -25,13 +34,15 @@ public sealed class CustomerEditForm : Form
     /// <summary>The validated customer, populated once the user clicks "Save".</summary>
     public Customer Customer { get; private set; } = null!;
 
-    /// <summary>Pass null to create a new customer, or an existing one to edit it.</summary>
-    public CustomerEditForm(Customer? existingCustomer)
+    /// <summary>Pass null for <paramref name="existingCustomer"/> to create a new customer, or an existing one to edit it.</summary>
+    public CustomerEditForm(ICustomerRepository repository, Customer? existingCustomer)
     {
+        _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _id = existingCustomer?.Id ?? 0;
         _createdAt = existingCustomer?.CreatedAt ?? default;
 
         InitializeLayout(isNew: existingCustomer is null);
+        HookInlineValidation();
         if (existingCustomer is not null)
             LoadFromCustomer(existingCustomer);
     }
@@ -40,11 +51,13 @@ public sealed class CustomerEditForm : Form
     {
         Text = isNew ? "Nowy klient" : "Edycja klienta";
         Width = 460;
-        Height = 420;
+        Height = 360;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent;
         MaximizeBox = false;
         MinimizeBox = false;
+
+        _errorProvider.ContainerControl = this;
 
         var layout = new TableLayoutPanel
         {
@@ -55,6 +68,8 @@ public sealed class CustomerEditForm : Form
         };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        for (var i = 0; i < layout.RowCount; i++)
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, RowHeight));
 
         AddRow(layout, "Nazwa:", _nameBox, 0);
         AddRow(layout, "NIP:", _nipBox, 1);
@@ -93,19 +108,55 @@ public sealed class CustomerEditForm : Form
         CancelButton = cancelButton;
     }
 
-    private static void AddRow(TableLayoutPanel layout, string label, TextBox box, int row)
+    private static void AddRow(TableLayoutPanel layout, string text, TextBox box, int row)
     {
-        layout.Controls.Add(new Label
+        var label = new Label
         {
-            Text = label,
-            AutoSize = true,
-            Anchor = AnchorStyles.Left,
-            Margin = new Padding(3, 8, 3, 3)
-        }, 0, row);
+            Text = text,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Margin = new Padding(3, 2, 3, 2)
+        };
+        layout.Controls.Add(label, 0, row);
 
         box.Dock = DockStyle.Fill;
-        box.Margin = new Padding(3, 4, 3, 4);
+        box.Margin = new Padding(3, 2, 3, 2);
         layout.Controls.Add(box, 1, row);
+    }
+
+    /// <summary>
+    /// Wires each field to validate itself (and show a red icon via ErrorProvider) as soon as
+    /// the user leaves it, using the exact same rules as the final save check below - so
+    /// inline feedback and the save-time gate can never disagree.
+    /// </summary>
+    private void HookInlineValidation()
+    {
+        HookField(_nameBox, () => CustomerValidator.ValidateName(_nameBox.Text));
+        HookField(_nipBox, ValidateNipField);
+        HookField(_streetBox, () => Address.ValidateStreet(_streetBox.Text));
+        HookField(_postalCodeBox, () => Address.ValidatePostalCode(_postalCodeBox.Text));
+        HookField(_cityBox, () => Address.ValidateCity(_cityBox.Text));
+        HookField(_phoneBox, () => CustomerValidator.ValidatePhone(_phoneBox.Text));
+        HookField(_emailBox, () => Email.Validate(_emailBox.Text));
+    }
+
+    private void HookField(TextBox box, Func<string?> validate) =>
+        box.Leave += (_, _) => _errorProvider.SetError(box, validate() ?? "");
+
+    /// <summary>
+    /// Validates the NIP field's format and, when it parses, whether another customer already
+    /// uses it. Shared by inline validation (on Leave) and the final save check.
+    /// </summary>
+    private string? ValidateNipField()
+    {
+        var formatError = Nip.Validate(_nipBox.Text);
+        if (formatError is not null)
+            return formatError;
+
+        var nip = Nip.Parse(_nipBox.Text);
+        return _repository.ExistsByNip(nip.Value, _id)
+            ? $"Klient z numerem NIP {nip.Value} już istnieje w katalogu."
+            : null;
     }
 
     private void LoadFromCustomer(Customer customer)
@@ -126,11 +177,14 @@ public sealed class CustomerEditForm : Form
 
         if (!CustomerValidator.TryValidate(input, out var validated, out var errors))
         {
-            MessageBox.Show(
-                "Popraw następujące błędy:\n\n• " + string.Join("\n• ", errors),
-                "Walidacja",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
+            ShowValidationErrors(errors);
+            return;
+        }
+
+        var duplicateNipError = ValidateNipField();
+        if (duplicateNipError is not null)
+        {
+            ShowValidationErrors(new[] { duplicateNipError });
             return;
         }
 
@@ -140,5 +194,14 @@ public sealed class CustomerEditForm : Form
 
         DialogResult = DialogResult.OK;
         Close();
+    }
+
+    private static void ShowValidationErrors(IEnumerable<string> errors)
+    {
+        MessageBox.Show(
+            "Popraw następujące błędy:\n\n• " + string.Join("\n• ", errors),
+            "Walidacja",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Warning);
     }
 }

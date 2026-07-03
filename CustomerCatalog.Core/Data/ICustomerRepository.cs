@@ -19,4 +19,10 @@ public interface ICustomerRepository
 
     /// <summary>Deletes a customer by Id. Returns true if the record existed.</summary>
     bool Delete(int id);
+
+    /// <summary>
+    /// Checks whether a customer other than <paramref name="excludeId"/> already has this NIP.
+    /// Pass null for <paramref name="excludeId"/> when checking a brand new customer.
+    /// </summary>
+    bool ExistsByNip(string nip, int? excludeId);
 }

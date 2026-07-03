@@ -49,4 +49,16 @@ public static class CustomerQuery
 
     private static bool Contains(string? value, string term) =>
         value is not null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Returns just the given 1-based page of up to <paramref name="pageSize"/> items.
+    /// <paramref name="page"/> is not clamped here - the caller (which also knows the total
+    /// count) is expected to keep it within [1, PageCount] as the underlying data changes.
+    /// </summary>
+    public static IReadOnlyList<Customer> Paginate(IReadOnlyList<Customer> source, int page, int pageSize) =>
+        source.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+
+    /// <summary>Number of pages needed to show all items at the given page size (always at least 1).</summary>
+    public static int PageCount(int totalCount, int pageSize) =>
+        Math.Max(1, (int)Math.Ceiling(totalCount / (double)pageSize));
 }

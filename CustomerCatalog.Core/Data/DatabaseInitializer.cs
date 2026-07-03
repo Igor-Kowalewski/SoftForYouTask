@@ -108,9 +108,13 @@ public sealed class DatabaseInitializer
     {
         Randomizer.Seed = new Random(12345);
 
+        // Nip is now a UNIQUE column, so seeding must guarantee distinct NIPs - with 10,000+
+        // rows, generating them independently would have a real (~5%) chance of a collision.
+        var usedNips = new HashSet<string>();
+
         var faker = new Faker<Customer>("pl")
             .RuleFor(c => c.Name, f => f.Company.CompanyName())
-            .RuleFor(c => c.Nip, f => GenerateValidNip(f))
+            .RuleFor(c => c.Nip, f => GenerateUniqueValidNip(f, usedNips))
             .RuleFor(c => c.Address, f => Address.Parse(
                 f.Address.StreetAddress(),
                 GeneratePolishPostalCode(f),
@@ -120,6 +124,16 @@ public sealed class DatabaseInitializer
             .RuleFor(c => c.CreatedAt, f => f.Date.Past(2));
 
         return faker.Generate(count);
+    }
+
+    private static Nip GenerateUniqueValidNip(Faker f, HashSet<string> usedNips)
+    {
+        while (true)
+        {
+            var nip = GenerateValidNip(f);
+            if (usedNips.Add(nip.Value))
+                return nip;
+        }
     }
 
     /// <summary>Generates a valid NIP (9 random digits + a computed check digit).</summary>
